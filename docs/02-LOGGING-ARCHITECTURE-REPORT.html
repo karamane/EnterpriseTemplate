@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <title>.NET Enterprise - Loglama Mimarisi Raporu v3.0</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, sans-serif; line-height: 1.6; max-width: 900px; margin: 0 auto; padding: 20px; }
+        h1 { color: #1a1a2e; border-bottom: 3px solid #4361ee; padding-bottom: 10px; }
+        h2 { color: #16213e; margin-top: 30px; border-bottom: 2px solid #e94560; padding-bottom: 5px; }
+        h3 { color: #0f3460; }
+        table { border-collapse: collapse; width: 100%; margin: 15px 0; }
+        th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
+        th { background-color: #4361ee; color: white; }
+        tr:nth-child(even) { background-color: #f8f9fa; }
+        code { background-color: #f1f3f5; padding: 2px 6px; border-radius: 4px; font-family: Consolas, monospace; }
+        pre { background-color: #1a1a2e; color: #f8f9fa; padding: 15px; border-radius: 8px; overflow-x: auto; }
+        pre code { background: none; color: inherit; }
+        .highlight { background-color: #fff3cd; padding: 15px; border-left: 4px solid #ffc107; margin: 15px 0; }
+        .success { background-color: #d4edda; padding: 15px; border-left: 4px solid #28a745; margin: 15px 0; }
+        .info { background-color: #d1ecf1; padding: 15px; border-left: 4px solid #17a2b8; margin: 15px 0; }
+        .cover-page { text-align: center; page-break-after: always; }
+        .cover-page h1 { font-size: 2.5em; border: none; margin-top: 100px; }
+        .architecture-diagram { background-color: #f8f9fa; padding: 20px; border: 1px solid #dee2e6; border-radius: 8px; font-family: monospace; white-space: pre; overflow-x: auto; }
+    </style>
+</head>
+<body>
+
+<div class="cover-page">
+    <h1>.NET Enterprise Uygulama</h1>
+    <h2 style="border: none; color: #4361ee;">Loglama Mimarisi Raporu</h2>
+    <p><strong>Versiyon:</strong> 3.0</p>
+    <p><strong>Tarih:</strong> Kasım 2024</p>
+</div>
+
+<h1>İçindekiler</h1>
+<ol>
+    <li><a href="#summary">Yönetici Özeti</a></li>
+    <li><a href="#middleware">Middleware Tabanlı Loglama</a></li>
+    <li><a href="#errorcode">Hata Kodu Sistemi</a></li>
+    <li><a href="#proxy">Proxy Loglama (WCF & HTTP)</a></li>
+    <li><a href="#correlation">Correlation ID Mekanizması</a></li>
+</ol>
+
+<h2 id="summary">1. Yönetici Özeti</h2>
+
+<h3>1.1 Temel Özellikler</h3>
+<table>
+    <tr><th>Özellik</th><th>Açıklama</th></tr>
+    <tr><td><strong>Middleware Loglama</strong></td><td>Metod bazlı log yok, tamamen otomatik</td></tr>
+    <tr><td><strong>ErrorCode Sistemi</strong></td><td>Developer-friendly hata kodu tanımlama</td></tr>
+    <tr><td><strong>WCF Dispatcher</strong></td><td>SOAP request/response otomatik loglama</td></tr>
+    <tr><td><strong>HTTP Proxy</strong></td><td>REST çağrıları otomatik loglama</td></tr>
+    <tr><td><strong>Correlation ID</strong></td><td>Uçtan uca request tracking</td></tr>
+</table>
+
+<h3>1.2 Mimari Değişiklikler</h3>
+<div class="success">
+<ul>
+    <li>✅ <strong>Metod bazlı loglama kaldırıldı</strong> → Middleware kullanılıyor</li>
+    <li>✅ <strong>Server API</strong> → Application katmanına taşındı</li>
+    <li>✅ <strong>Client API</strong> → Tamamen izole, Server API referansı yok</li>
+    <li>✅ <strong>ErrorCode sistemi</strong> → Developer'lar kolayca hata tanımlayabilir</li>
+    <li>✅ <strong>WCF Dispatcher</strong> → SOAP loglaması otomatik</li>
+</ul>
+</div>
+
+<h2 id="middleware">2. Middleware Tabanlı Loglama</h2>
+
+<h3>2.1 Kullanım</h3>
+<pre><code>// Program.cs - Tek satır!
+app.UseEnterpriseLogging();
+</code></pre>
+
+<h3>2.2 Middleware Pipeline</h3>
+<div class="architecture-diagram">
+Request
+   │
+   ▼
+┌─────────────────────────────┐
+│ ExceptionLoggingMiddleware  │ ← Tüm hataları yakalar
+├─────────────────────────────┤
+│ CorrelationIdMiddleware     │ ← Her request'e ID atar
+├─────────────────────────────┤
+│ RequestLoggingMiddleware    │ ← Request/Response loglar
+├─────────────────────────────┤
+│ ActionLoggingMiddleware     │ ← Controller action loglar
+└─────────────────────────────┘
+   │
+   ▼
+Controller → Business → Domain
+</div>
+
+<h3>2.3 MediatR Auto-Logging</h3>
+<pre><code>// Her Command/Query otomatik loglanır
+[abc123] MediatR START: CreateCustomerCommand
+[abc123] MediatR END: CreateCustomerCommand | Duration: 45ms | Success
+</code></pre>
+
+<h2 id="errorcode">3. Hata Kodu Sistemi</h2>
+
+<h3>3.1 ErrorCode Yapısı</h3>
+<pre><code>public record ErrorCode
+{
+    public string Code { get; init; }           // "CUST-001"
+    public string UserMessage { get; init; }    // "Müşteri bulunamadı"
+    public string TechnicalMessage { get; init; } // "Customer not found"
+    public int HttpStatusCode { get; init; }    // 404
+    public ErrorCategory Category { get; init; } // NotFound
+    public ErrorSeverity Severity { get; init; } // Error
+}
+</code></pre>
+
+<h3>3.2 BusinessException</h3>
+<pre><code>// Orijinal hatayı koruyarak BusinessException fırlat
+catch (Exception ex)
+{
+    throw new BusinessException(
+        errorCode,
+        ex,  // Orijinal exception innerException olarak
+        new Dictionary&lt;string, object&gt;
+        {
+            ["ServiceName"] = "PaymentService",
+            ["OriginalError"] = ex.Message
+        });
+}
+</code></pre>
+
+<div class="highlight">
+    <strong>Önemli:</strong> Exception fırlatmadan önce orijinal hatayı logla ve innerException olarak koru!
+</div>
+
+<h2 id="proxy">4. Proxy Loglama (WCF & HTTP)</h2>
+
+<h3>4.1 WCF Dispatcher Akışı</h3>
+<div class="architecture-diagram">
+WCF Request
+    │
+    ▼
+┌──────────────────────────────────┐
+│ WcfLoggingInspector              │
+│ (IClientMessageInspector)        │
+├──────────────────────────────────┤
+│ BeforeSendRequest:               │
+│  - SOAP body logla               │
+│  - Correlation ID header ekle    │
+├──────────────────────────────────┤
+│ AfterReceiveReply:               │
+│  - SOAP response logla           │
+│  - Duration hesapla              │
+│  - Performance log               │
+└──────────────────────────────────┘
+    │
+    ▼
+WCF Service
+</div>
+
+<h3>4.2 Exception Handling Akışı</h3>
+<pre><code>1. Dış servisten exception gelir
+   │
+   ▼
+2. ÖNCE orijinal exception loglanır (KRİTİK!)
+   _logger.LogError(ex, "...");
+   │
+   ▼
+3. ExceptionLogEntry oluşturulur
+   │
+   ▼
+4. BusinessException fırlatılır
+   - ErrorCode ile (CUST-001, PAY-001, vs.)
+   - Orijinal exception innerException olarak
+</code></pre>
+
+<h2 id="correlation">5. Correlation ID Mekanizması</h2>
+
+<h3>5.1 Akış</h3>
+<div class="architecture-diagram">
+Mobile App
+    │ X-Correlation-ID: abc123
+    ▼
+Client API (DMZ)
+    │ X-Correlation-ID: abc123
+    ▼
+Server API (Secure Zone)
+    │ X-Correlation-ID: abc123
+    ▼
+WCF/HTTP Proxy
+    │ SOAP Header / HTTP Header
+    ▼
+External Service
+</div>
+
+<h2>Özet</h2>
+<div class="success">
+<table>
+    <tr><th>Özellik</th><th>Avantaj</th></tr>
+    <tr><td><strong>Middleware</strong></td><td>Kod tekrarı yok, tutarlı loglama</td></tr>
+    <tr><td><strong>ErrorCode</strong></td><td>Standart hata mesajları, kolay hata takibi</td></tr>
+    <tr><td><strong>Proxy Loglama</strong></td><td>Dış servis çağrıları izlenebilir</td></tr>
+    <tr><td><strong>Correlation ID</strong></td><td>Uçtan uca request tracking</td></tr>
+</table>
+</div>
+
+</body>
+</html>

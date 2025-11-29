@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>Enterprise.Business</RootNamespace>
+    <AssemblyName>Enterprise.Business</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Core\Enterprise.Core.Application\Enterprise.Core.Application.csproj" />
+    <ProjectReference Include="..\..\Core\Enterprise.Core.Domain\Enterprise.Core.Domain.csproj" />
+    <ProjectReference Include="..\..\Infrastructure\Enterprise.Infrastructure.Logging\Enterprise.Infrastructure.Logging.csproj" />
+    <ProjectReference Include="..\..\Proxy\Enterprise.Proxy.ExternalService\Enterprise.Proxy.ExternalService.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="MediatR" />
+    <PackageReference Include="FluentValidation" />
+    <PackageReference Include="AutoMapper" />
+  </ItemGroup>
+
+</Project>
+

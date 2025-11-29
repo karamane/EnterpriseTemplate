@@ -1,0 +1,159 @@
+# Build results
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+[Ww][Ii][Nn]32/
+[Aa][Rr][Mm]/
+[Aa][Rr][Mm]64/
+bld/
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+
+# Visual Studio
+.vs/
+*.user
+*.userosscache
+*.sln.docstates
+*.suo
+
+# User-specific files
+*.rsuser
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# Rider
+.idea/
+
+# VS Code
+.vscode/
+*.code-workspace
+
+# NuGet
+*.nupkg
+*.snupkg
+**/[Pp]ackages/*
+!**/[Pp]ackages/build/
+*.nuget.props
+*.nuget.targets
+project.lock.json
+project.fragment.lock.json
+artifacts/
+
+# MSTest
+[Tt]est[Rr]esult*/
+[Bb]uild[Ll]og.*
+
+# Test coverage
+*.coverage
+*.coveragexml
+coverage*.json
+coverage*.xml
+coverage/
+
+# NCrunch
+*.ncrunchproject
+*.ncrunchsolution
+_NCrunch_*
+.*crunch*.local.xml
+
+# StyleCop
+StyleCopReport.xml
+
+# Files built by Visual Studio
+*_i.c
+*_p.c
+*_h.h
+*.ilk
+*.meta
+*.obj
+*.iobj
+*.pch
+*.pdb
+*.ipdb
+*.pgc
+*.pgd
+*.rsp
+*.sbr
+*.tlb
+*.tli
+*.tlh
+*.tmp
+*.tmp_proj
+*_wpftmp.csproj
+*.log
+*.tlog
+*.vspscc
+*.vssscc
+.builds
+*.pidb
+*.svclog
+*.scc
+
+# Compiled source
+*.dll
+*.exe
+*.pdb
+*.cache
+*.DotSettings.user
+
+# OS generated
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+Desktop.ini
+
+# Application specific
+appsettings.Development.json
+appsettings.*.local.json
+launchSettings.json
+
+# Secrets
+*.pfx
+*.p12
+*.key
+secrets.json
+client-secrets.json
+
+# Docker
+**/docker-compose.override.yml
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# JetBrains Rider
+*.sln.iml
+
+# Windows Installer files
+*.msi
+*.msm
+*.msp
+
+# Publish folders
+publish/
+PublishOutput/
+
+# Azure Functions
+local.settings.json
+
+# SQL Server files
+*.mdf
+*.ldf
+*.ndf
+
+# BenchmarkDotNet
+BenchmarkDotNet.Artifacts/
+
+# Project specific
+terminals/
+

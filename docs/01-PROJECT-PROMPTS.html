@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <title>.NET Enterprise Uygulama - Geliştirme Promptları v3.0</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, sans-serif; line-height: 1.6; max-width: 900px; margin: 0 auto; padding: 20px; }
+        h1 { color: #1a1a2e; border-bottom: 3px solid #4361ee; padding-bottom: 10px; }
+        h2 { color: #16213e; margin-top: 30px; border-bottom: 2px solid #e94560; padding-bottom: 5px; }
+        h3 { color: #0f3460; }
+        table { border-collapse: collapse; width: 100%; margin: 15px 0; }
+        th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
+        th { background-color: #4361ee; color: white; }
+        tr:nth-child(even) { background-color: #f8f9fa; }
+        code { background-color: #f1f3f5; padding: 2px 6px; border-radius: 4px; font-family: Consolas, monospace; }
+        pre { background-color: #1a1a2e; color: #f8f9fa; padding: 15px; border-radius: 8px; overflow-x: auto; }
+        pre code { background: none; color: inherit; }
+        .highlight { background-color: #fff3cd; padding: 15px; border-left: 4px solid #ffc107; margin: 15px 0; }
+        .success { background-color: #d4edda; padding: 15px; border-left: 4px solid #28a745; margin: 15px 0; }
+        .danger { background-color: #f8d7da; padding: 15px; border-left: 4px solid #dc3545; margin: 15px 0; }
+        .cover-page { text-align: center; page-break-after: always; }
+        .cover-page h1 { font-size: 2.5em; border: none; margin-top: 100px; }
+    </style>
+</head>
+<body>
+
+<div class="cover-page">
+    <h1>.NET Enterprise Uygulama</h1>
+    <h2 style="border: none; color: #4361ee;">Geliştirme Promptları</h2>
+    <p><strong>Versiyon:</strong> 3.0</p>
+    <p><strong>Tarih:</strong> Kasım 2024</p>
+</div>
+
+<h1>İçindekiler</h1>
+<ol>
+    <li><a href="#structure">Proje Yapısı</a></li>
+    <li><a href="#dto">DTO ve Mapping Stratejisi</a></li>
+    <li><a href="#errorcode">Hata Kodu Sistemi</a></li>
+    <li><a href="#middleware">Middleware Tabanlı Loglama</a></li>
+    <li><a href="#proxy">Proxy Katmanı (WCF & HTTP)</a></li>
+    <li><a href="#isolation">Client API İzolasyonu</a></li>
+</ol>
+
+<h2 id="structure">1. Proje Yapısı</h2>
+
+<h3>1.1 Klasör Yapısı</h3>
+<pre><code>Enterprise/
+├── src/
+│   ├── Core/
+│   │   └── Enterprise.Core.Shared/    # ErrorCodes, Exceptions
+│   ├── Application/
+│   │   └── Enterprise.Api.Server/     # Secure Zone API
+│   ├── Presentation/
+│   │   └── Enterprise.Api.Client/     # DMZ - Tamamen izole
+│   ├── Proxy/
+│   │   └── Enterprise.Proxy.Core/     # WCF & HTTP base
+│   └── Business/
+└── docs/
+</code></pre>
+
+<h2 id="dto">2. DTO ve Mapping Stratejisi</h2>
+
+<p>Her katman <strong>kendi DTO'larına</strong> sahiptir:</p>
+
+<table>
+    <tr><th>Katman</th><th>Namespace</th><th>Örnek</th></tr>
+    <tr><td>ClientApi</td><td>Enterprise.Api.Client.DTOs</td><td>CustomerClientResponse</td></tr>
+    <tr><td>ServerApi</td><td>Enterprise.Api.Server.DTOs</td><td>CustomerApiResponse</td></tr>
+    <tr><td>Business</td><td>Enterprise.Business.DTOs</td><td>CustomerBusinessDto</td></tr>
+</table>
+
+<h2 id="errorcode">3. Hata Kodu Sistemi</h2>
+
+<h3>3.1 ErrorCode Tanımlama</h3>
+<pre><code>public static class CustomerErrorCodes
+{
+    public static readonly ErrorCode CustomerNotFound = new(
+        "CUST-001",
+        "Müşteri bulunamadı",
+        "Customer not found",
+        404,
+        ErrorCategory.NotFound);
+
+    public static readonly ErrorCode EmailAlreadyExists = new(
+        "CUST-002",
+        "Bu email adresi zaten kayıtlı",
+        "Email already exists",
+        409,
+        ErrorCategory.Conflict);
+}
+</code></pre>
+
+<h3>3.2 BusinessException Kullanımı</h3>
+<pre><code>// Basit kullanım
+throw new BusinessException(CustomerErrorCodes.CustomerNotFound);
+
+// Orijinal hatayı koruyarak (KRİTİK!)
+catch (Exception ex)
+{
+    // Önce logla, sonra BusinessException fırlat
+    throw new BusinessException(
+        errorCode,
+        ex,  // Orijinal exception korunur
+        new Dictionary&lt;string, object&gt;
+        {
+            ["ServiceName"] = "PaymentService",
+            ["OriginalError"] = ex.Message
+        });
+}
+</code></pre>
+
+<div class="highlight">
+    <strong>Önemli:</strong> BusinessException fırlatırken orijinal exception'ı innerException olarak geçin!
+</div>
+
+<h3>3.3 Hata Kategorileri</h3>
+<table>
+    <tr><th>Kategori</th><th>HTTP Status</th><th>Örnek</th></tr>
+    <tr><td>Validation</td><td>400</td><td>Form validation</td></tr>
+    <tr><td>Business</td><td>422</td><td>İş kuralı ihlali</td></tr>
+    <tr><td>NotFound</td><td>404</td><td>Kayıt bulunamadı</td></tr>
+    <tr><td>Conflict</td><td>409</td><td>Duplicate kayıt</td></tr>
+    <tr><td>ExternalService</td><td>502/503/504</td><td>Dış servis hatası</td></tr>
+</table>
+
+<h2 id="middleware">4. Middleware Tabanlı Loglama</h2>
+
+<h3>4.1 Eski vs Yeni Yaklaşım</h3>
+
+<div class="danger">
+<strong>Eski Yaklaşım (Kötü):</strong>
+<pre><code>public async Task&lt;IActionResult&gt; CreateCustomer(...)
+{
+    _logger.LogInformation("Started"); // Her metoda yazılıyor!
+    try {
+        ...
+        _logger.LogInformation("Completed"); // Tekrar!
+    } catch {
+        _logger.LogError("Failed"); // Tekrar!
+    }
+}
+</code></pre>
+</div>
+
+<div class="success">
+<strong>Yeni Yaklaşım (İyi):</strong>
+<pre><code>public async Task&lt;IActionResult&gt; CreateCustomer(...)
+{
+    // Hiç log kodu yok - middleware otomatik hallediyor!
+    var result = await _service.CreateAsync(request);
+    return Ok(result);
+}
+</code></pre>
+</div>
+
+<h3>4.2 Middleware Kullanımı</h3>
+<pre><code>// Program.cs - Tek satır!
+app.UseEnterpriseLogging();
+
+// Bu middleware şunları otomatik loglar:
+// - Request/Response (body dahil)
+// - Action başlangıç/bitiş
+// - Exception'lar
+// - Performance metrikleri
+</code></pre>
+
+<h2 id="proxy">5. Proxy Katmanı (WCF & HTTP)</h2>
+
+<h3>5.1 WCF Proxy (Dispatcher ile Loglama)</h3>
+<pre><code>public class PaymentProxy : WcfProxyBase&lt;IPaymentService&gt;
+{
+    public async Task&lt;PaymentResult&gt; ProcessAsync(PaymentRequest request)
+    {
+        // Otomatik:
+        // - SOAP Request/Response loglama
+        // - Correlation ID propagation
+        // - Exception handling ve BusinessException dönüşümü
+        return await ExecuteAsync(
+            channel => channel.ProcessPaymentAsync(request),
+            "ProcessPayment",
+            PaymentErrorCodes.PaymentFailed);
+    }
+}
+</code></pre>
+
+<h3>5.2 Exception Handling Akışı</h3>
+<pre><code>1. Exception oluşur
+   │
+   ▼
+2. Orijinal exception ÖNCE loglanır (kaybedilmez!)
+   │
+   ▼
+3. ExceptionLogEntry oluşturulur
+   │
+   ▼
+4. BusinessException fırlatılır
+   - ErrorCode ile
+   - Orijinal exception innerException olarak
+   - Ek metadata ile
+</code></pre>
+
+<h2 id="isolation">6. Client API İzolasyonu</h2>
+
+<h3>6.1 Neden İzole?</h3>
+<ul>
+    <li><strong>Güvenlik:</strong> DMZ'de çalışır, internal kodlara erişim yok</li>
+    <li><strong>Bağımsızlık:</strong> Server API değişiklikleri Client API'yi etkilemez</li>
+    <li><strong>Deploy:</strong> Ayrı deploy edilebilir</li>
+</ul>
+
+<h3>6.2 Referans Yapısı</h3>
+<pre><code>&lt;!-- Client API sadece bunlara referans verir --&gt;
+&lt;ProjectReference Include="Enterprise.Core.Shared" /&gt;
+&lt;ProjectReference Include="Enterprise.Infrastructure.Logging" /&gt;
+
+&lt;!-- Server API referansı YOK! --&gt;
+</code></pre>
+
+<h2>Özet</h2>
+<div class="success">
+<table>
+    <tr><th>Özellik</th><th>Açıklama</th></tr>
+    <tr><td>Client API İzolasyonu</td><td>Server API referansı yok</td></tr>
+    <tr><td>Middleware Loglama</td><td>Metod bazlı log yok, otomatik</td></tr>
+    <tr><td>ErrorCode Sistemi</td><td>Developer-friendly hata kodları</td></tr>
+    <tr><td>WCF Dispatcher</td><td>SOAP request/response otomatik loglama</td></tr>
+    <tr><td>BusinessException</td><td>Orijinal hatayı koruyan exception</td></tr>
+</table>
+</div>
+
+</body>
+</html>

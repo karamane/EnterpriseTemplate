@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <RootNamespace>Enterprise.Api.Server</RootNamespace>
+    <AssemblyName>Enterprise.Api.Server</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Business\Enterprise.Business\Enterprise.Business.csproj" />
+    <ProjectReference Include="..\..\Infrastructure\Enterprise.Infrastructure.Logging\Enterprise.Infrastructure.Logging.csproj" />
+    <ProjectReference Include="..\..\Infrastructure\Enterprise.Infrastructure.Persistence\Enterprise.Infrastructure.Persistence.csproj" />
+    <ProjectReference Include="..\..\Infrastructure\Enterprise.Infrastructure.Caching\Enterprise.Infrastructure.Caching.csproj" />
+    <ProjectReference Include="..\..\Infrastructure\Enterprise.Infrastructure.CrossCutting\Enterprise.Infrastructure.CrossCutting.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Serilog.AspNetCore" />
+    <PackageReference Include="Swashbuckle.AspNetCore" />
+    <PackageReference Include="AspNetCoreRateLimit" />
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" />
+    <PackageReference Include="AutoMapper" />
+    <PackageReference Include="FluentValidation" />
+    <PackageReference Include="FluentValidation.DependencyInjectionExtensions" />
+    <PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" />
+  </ItemGroup>
+
+</Project>
+

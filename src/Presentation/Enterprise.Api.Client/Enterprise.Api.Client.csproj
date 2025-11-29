@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <RootNamespace>Enterprise.Api.Client</RootNamespace>
+    <AssemblyName>Enterprise.Api.Client</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Client API tamamen izole - hiçbir internal API referansı yok -->
+    <ProjectReference Include="..\..\Core\Enterprise.Core.Shared\Enterprise.Core.Shared.csproj" />
+    <ProjectReference Include="..\..\Infrastructure\Enterprise.Infrastructure.Logging\Enterprise.Infrastructure.Logging.csproj" />
+    <ProjectReference Include="..\..\Infrastructure\Enterprise.Infrastructure.CrossCutting\Enterprise.Infrastructure.CrossCutting.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Serilog.AspNetCore" />
+    <PackageReference Include="Swashbuckle.AspNetCore" />
+    <PackageReference Include="AspNetCoreRateLimit" />
+    <PackageReference Include="Polly" />
+    <PackageReference Include="Polly.Extensions.Http" />
+    <PackageReference Include="Microsoft.Extensions.Http.Polly" />
+    <PackageReference Include="AutoMapper" />
+    <PackageReference Include="FluentValidation" />
+    <PackageReference Include="FluentValidation.DependencyInjectionExtensions" />
+  </ItemGroup>
+
+</Project>
+

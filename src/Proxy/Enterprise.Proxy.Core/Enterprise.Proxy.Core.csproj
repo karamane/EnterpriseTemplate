@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>Enterprise.Proxy.Core</RootNamespace>
+    <AssemblyName>Enterprise.Proxy.Core</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Core\Enterprise.Core.Application\Enterprise.Core.Application.csproj" />
+    <ProjectReference Include="..\..\Infrastructure\Enterprise.Infrastructure.Logging\Enterprise.Infrastructure.Logging.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Polly" />
+    <PackageReference Include="Polly.Extensions.Http" />
+    <PackageReference Include="Microsoft.Extensions.Http.Polly" />
+    <!-- WCF Support -->
+    <PackageReference Include="System.ServiceModel.Primitives" />
+    <PackageReference Include="System.ServiceModel.Http" />
+    <PackageReference Include="System.ServiceModel.NetTcp" />
+    <PackageReference Include="System.ServiceModel.Security" />
+  </ItemGroup>
+
+</Project>
+

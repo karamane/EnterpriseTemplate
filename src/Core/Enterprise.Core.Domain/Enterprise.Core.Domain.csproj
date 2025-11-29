@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>Enterprise.Core.Domain</RootNamespace>
+    <AssemblyName>Enterprise.Core.Domain</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Enterprise.Core.Shared\Enterprise.Core.Shared.csproj" />
+  </ItemGroup>
+
+</Project>
+

@@ -2,6 +2,7 @@ using Enterprise.Core.Application.Interfaces.Logging;
 using Enterprise.Core.Shared.Helpers;
 using Enterprise.Infrastructure.Logging.Context;
 using Enterprise.Infrastructure.Logging.Middleware;
+using Enterprise.Infrastructure.Logging.Options;
 using Enterprise.Infrastructure.Logging.Services;
 using Enterprise.Infrastructure.Logging.Sinks;
 using MediatR;

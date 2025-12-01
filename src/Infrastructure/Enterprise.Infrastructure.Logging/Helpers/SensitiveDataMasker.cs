@@ -46,7 +46,7 @@ public partial class SensitiveDataMasker : ISensitiveDataMasker
 
     // Static instance (varsayılan options ile)
     private static readonly Lazy<SensitiveDataMasker> _defaultInstance = new(() =>
-        new SensitiveDataMasker(Options.Create(new SensitiveDataOptions())));
+        new SensitiveDataMasker(Microsoft.Extensions.Options.Options.Create(new SensitiveDataOptions())));
 
     /// <summary>
     /// Varsayılan instance (DI olmadan kullanım için)

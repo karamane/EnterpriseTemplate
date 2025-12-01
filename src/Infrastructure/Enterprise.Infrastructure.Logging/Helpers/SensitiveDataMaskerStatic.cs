@@ -9,7 +9,7 @@ namespace Enterprise.Infrastructure.Logging.Helpers;
 public static class SensitiveDataMaskerStatic
 {
     private static readonly Lazy<SensitiveDataMasker> _instance = new(() =>
-        new SensitiveDataMasker(Options.Create(new SensitiveDataOptions())));
+        new SensitiveDataMasker(Microsoft.Extensions.Options.Options.Create(new SensitiveDataOptions())));
 
     /// <summary>
     /// JSON içindeki hassas alanları maskeler

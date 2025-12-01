@@ -247,6 +247,7 @@ dotnet run
 | [03-HIGH-LEVEL-DESIGN.md](docs/03-HIGH-LEVEL-DESIGN.md) | High Level Design (HLD) |
 | [04-UNIT-TEST-GUIDE.md](docs/04-UNIT-TEST-GUIDE.md) | Unit Test Kılavuzu |
 | [05-PROXY-ADAPTATION-GUIDE.md](docs/05-PROXY-ADAPTATION-GUIDE.md) | Proxy Adaptasyon Rehberi |
+| [06-FILE-LOGGING-STRUCTURE.md](docs/06-FILE-LOGGING-STRUCTURE.md) | Dosya Loglama Yapısı |
 
 ## 🧪 Test
 

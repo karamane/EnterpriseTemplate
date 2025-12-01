@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enterprise .NET 10 - Dosya Bazlı Loglama Yapısı</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+            color: #333;
+        }
+        h1 {
+            color: #1a5276;
+            border-bottom: 3px solid #1a5276;
+            padding-bottom: 10px;
+        }
+        h2 {
+            color: #2874a6;
+            border-bottom: 2px solid #2874a6;
+            padding-bottom: 8px;
+            margin-top: 30px;
+        }
+        h3 {
+            color: #3498db;
+            margin-top: 25px;
+        }
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            margin: 15px 0;
+        }
+        th, td {
+            border: 1px solid #bdc3c7;
+            padding: 10px;
+            text-align: left;
+        }
+        th {
+            background-color: #2874a6;
+            color: white;
+        }
+        tr:nth-child(even) {
+            background-color: #f8f9fa;
+        }
+        code {
+            background-color: #f4f4f4;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Consolas', 'Courier New', monospace;
+            font-size: 0.9em;
+        }
+        pre {
+            background-color: #2c3e50;
+            color: #ecf0f1;
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+            font-family: 'Consolas', 'Courier New', monospace;
+            font-size: 0.85em;
+            line-height: 1.4;
+        }
+        .info-box {
+            background-color: #d4edda;
+            border-left: 4px solid #28a745;
+            padding: 15px;
+            margin: 15px 0;
+        }
+        .warning-box {
+            background-color: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 15px;
+            margin: 15px 0;
+        }
+        .header-info {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        .header-info p {
+            margin: 5px 0;
+        }
+        .folder-structure {
+            background-color: #1e1e1e;
+            color: #d4d4d4;
+            padding: 20px;
+            border-radius: 5px;
+            font-family: 'Consolas', monospace;
+        }
+        .folder-structure .folder {
+            color: #dcdcaa;
+        }
+        .folder-structure .file {
+            color: #9cdcfe;
+        }
+        .folder-structure .comment {
+            color: #6a9955;
+        }
+        @media print {
+            body { max-width: 100%; }
+            pre { white-space: pre-wrap; }
+        }
+    </style>
+</head>
+<body>
+
+<h1>📁 Dosya Bazlı Loglama Yapısı</h1>
+
+<div class="header-info">
+    <p><strong>Versiyon:</strong> 1.0</p>
+    <p><strong>Tarih:</strong> Kasım 2025</p>
+    <p><strong>Framework:</strong> .NET 10, Serilog</p>
+    <p><strong>Uygulama:</strong> Enterprise .NET Application</p>
+</div>
+
+<h2>1. Klasör Yapısı</h2>
+
+<div class="folder-structure">
+<pre>
+logs/
+├── <span class="folder">enterprise-api-server/</span>           <span class="comment"># Uygulama adı (küçük harf, tire ile)</span>
+│   ├── <span class="folder">all/</span>                         <span class="comment"># Tüm log seviyeleri</span>
+│   │   ├── <span class="file">log-20251129.txt</span>         <span class="comment"># Günlük rolling</span>
+│   │   ├── <span class="file">log-20251128.txt</span>
+│   │   └── ...
+│   │
+│   ├── <span class="folder">errors/</span>                      <span class="comment"># Sadece Error ve üstü (Error, Fatal)</span>
+│   │   ├── <span class="file">error-20251129.txt</span>
+│   │   └── ...
+│   │
+│   ├── <span class="folder">requests/</span>                    <span class="comment"># HTTP Request/Response logları</span>
+│   │   ├── <span class="file">request-20251129.txt</span>
+│   │   └── ...
+│   │
+│   ├── <span class="folder">performance/</span>                 <span class="comment"># Performans metrikleri</span>
+│   │   ├── <span class="file">perf-20251129.txt</span>
+│   │   └── ...
+│   │
+│   ├── <span class="folder">business/</span>                    <span class="comment"># Business exception logları</span>
+│   │   ├── <span class="file">business-20251129.txt</span>
+│   │   └── ...
+│   │
+│   └── <span class="folder">security/</span>                    <span class="comment"># Security/Audit logları</span>
+│       ├── <span class="file">audit-20251129.txt</span>
+│       └── ...
+│
+├── <span class="folder">enterprise-api-client/</span>           <span class="comment"># Client API logları</span>
+│   └── (aynı yapı)
+│
+└── <span class="folder">enterprise-api-client-wcf/</span>       <span class="comment"># WCF Client API logları</span>
+    └── (aynı yapı)
+</pre>
+</div>
+
+<h2>2. Log Dosyası İçerik Formatları</h2>
+
+<h3>2.1 Standart Format (Text)</h3>
+
+<pre>
+29.11.2025 14:30:45.123 +03:00 [INF] [abc123-def456] [CustomersController] [SERVER-01] Customer retrieved successfully: Id=123
+29.11.2025 14:30:46.456 +03:00 [ERR] [abc123-def456] [CustomerService] [SERVER-01] Failed to update customer
+Enterprise.Core.Shared.Exceptions.BusinessException: Customer not found
+   at Enterprise.Business.Customers.GetCustomerQueryHandler.Handle(...) in ...
+</pre>
+
+<h3>2.2 JSON Format</h3>
+
+<pre>
+{
+  "timestamp": "2025-11-29T14:30:45.123+03:00",
+  "level": "Information",
+  "correlationId": "abc123-def456",
+  "source": "CustomersController",
+  "machine": "SERVER-01",
+  "message": "Customer retrieved successfully: Id=123",
+  "exception": null
+}
+</pre>
+
+<h2>3. Yapılandırma</h2>
+
+<h3>3.1 appsettings.json</h3>
+
+<pre>
+{
+  "Logging": {
+    "ApplicationName": "Enterprise.Api.Server",
+    "File": {
+      "Enabled": true,
+      "BasePath": "logs",
+      "UseApplicationSubfolder": true,
+      "RetentionDays": 30,
+      "MaxFileSizeMB": 100,
+      "CompressOldFiles": false,
+      "UseJsonFormat": false,
+      "RollingInterval": "Day",
+      "SeparateFiles": {
+        "AllLogs": true,
+        "ErrorLogs": true,
+        "RequestLogs": true,
+        "PerformanceLogs": true,
+        "BusinessLogs": true,
+        "SecurityLogs": true
+      }
+    }
+  }
+}
+</pre>
+
+<h3>3.2 Yapılandırma Parametreleri</h3>
+
+<table>
+    <tr>
+        <th>Parametre</th>
+        <th>Varsayılan</th>
+        <th>Açıklama</th>
+    </tr>
+    <tr>
+        <td><code>Enabled</code></td>
+        <td><code>true</code></td>
+        <td>Dosya loglaması aktif/pasif</td>
+    </tr>
+    <tr>
+        <td><code>BasePath</code></td>
+        <td><code>logs</code></td>
+        <td>Ana log klasörü</td>
+    </tr>
+    <tr>
+        <td><code>UseApplicationSubfolder</code></td>
+        <td><code>true</code></td>
+        <td>Uygulama adını alt klasör olarak kullan</td>
+    </tr>
+    <tr>
+        <td><code>RetentionDays</code></td>
+        <td><code>30</code></td>
+        <td>Log dosyası saklama süresi (gün)</td>
+    </tr>
+    <tr>
+        <td><code>MaxFileSizeMB</code></td>
+        <td><code>100</code></td>
+        <td>Maksimum dosya boyutu (MB)</td>
+    </tr>
+    <tr>
+        <td><code>CompressOldFiles</code></td>
+        <td><code>false</code></td>
+        <td>Eski dosyaları sıkıştır</td>
+    </tr>
+    <tr>
+        <td><code>UseJsonFormat</code></td>
+        <td><code>false</code></td>
+        <td>JSON formatında log yaz</td>
+    </tr>
+    <tr>
+        <td><code>RollingInterval</code></td>
+        <td><code>Day</code></td>
+        <td>Rolling aralığı</td>
+    </tr>
+</table>
+
+<h3>3.3 Rolling Interval Seçenekleri</h3>
+
+<table>
+    <tr>
+        <th>Değer</th>
+        <th>Açıklama</th>
+        <th>Dosya Adı Örneği</th>
+    </tr>
+    <tr>
+        <td><code>Infinite</code></td>
+        <td>Tek dosya (rolling yok)</td>
+        <td><code>log.txt</code></td>
+    </tr>
+    <tr>
+        <td><code>Year</code></td>
+        <td>Yıllık</td>
+        <td><code>log-2025.txt</code></td>
+    </tr>
+    <tr>
+        <td><code>Month</code></td>
+        <td>Aylık</td>
+        <td><code>log-202511.txt</code></td>
+    </tr>
+    <tr>
+        <td><code>Day</code></td>
+        <td>Günlük</td>
+        <td><code>log-20251129.txt</code></td>
+    </tr>
+    <tr>
+        <td><code>Hour</code></td>
+        <td>Saatlik</td>
+        <td><code>log-2025112914.txt</code></td>
+    </tr>
+    <tr>
+        <td><code>Minute</code></td>
+        <td>Dakikalık (test için)</td>
+        <td><code>log-202511291430.txt</code></td>
+    </tr>
+</table>
+
+<h2>4. Log Türleri ve Dosyaları</h2>
+
+<h3>4.1 All Logs (<code>/all/</code>)</h3>
+<p>Tüm log seviyelerini içerir:</p>
+<ul>
+    <li>Verbose</li>
+    <li>Debug</li>
+    <li>Information</li>
+    <li>Warning</li>
+    <li>Error</li>
+    <li>Fatal</li>
+</ul>
+
+<h3>4.2 Error Logs (<code>/errors/</code>)</h3>
+<p>Sadece hata loglarını içerir:</p>
+<ul>
+    <li>Error seviyesi</li>
+    <li>Fatal seviyesi</li>
+</ul>
+<div class="info-box">
+    <strong>Retention:</strong> Varsayılan sürenin 2 katı (önemli veriler)
+</div>
+
+<h3>4.3 Request Logs (<code>/requests/</code>)</h3>
+<p>HTTP Request/Response loglarını içerir:</p>
+<ul>
+    <li>Request body</li>
+    <li>Response body</li>
+    <li>Headers (maskelenmiş)</li>
+    <li>Duration</li>
+    <li>Status code</li>
+</ul>
+
+<h3>4.4 Performance Logs (<code>/performance/</code>)</h3>
+<p>Performans metriklerini içerir:</p>
+<ul>
+    <li>Operation duration</li>
+    <li>Slow queries</li>
+    <li>Cache hit/miss</li>
+    <li>External service calls</li>
+</ul>
+
+<h3>4.5 Business Logs (<code>/business/</code>)</h3>
+<p>İş kuralı ihlallerini içerir:</p>
+<ul>
+    <li>BusinessException</li>
+    <li>Validation errors</li>
+    <li>Domain events</li>
+</ul>
+<div class="info-box">
+    <strong>Retention:</strong> Varsayılan sürenin 2 katı
+</div>
+
+<h3>4.6 Security Logs (<code>/security/</code>)</h3>
+<p>Güvenlik ve audit loglarını içerir:</p>
+<ul>
+    <li>Authentication attempts</li>
+    <li>Authorization failures</li>
+    <li>Data access logs</li>
+    <li>Admin operations</li>
+</ul>
+<div class="warning-box">
+    <strong>Retention:</strong> Varsayılan sürenin 3 katı (compliance için)
+</div>
+
+<h2>5. Log Arama Örnekleri (PowerShell)</h2>
+
+<h3>5.1 Son Hataları Bul</h3>
+<pre>
+# Son 10 hatayı göster
+Get-Content .\logs\enterprise-api-server\errors\error-*.txt -Tail 10
+
+# Belirli bir Correlation ID ile ara
+Select-String -Path .\logs\enterprise-api-server\all\*.txt -Pattern "abc123-def456"
+</pre>
+
+<h3>5.2 Tarih Aralığında Ara</h3>
+<pre>
+# Bugünün loglarını ara
+Select-String -Path .\logs\enterprise-api-server\all\log-$(Get-Date -Format 'yyyyMMdd').txt -Pattern "ERROR"
+</pre>
+
+<h3>5.3 Performance Sorunlarını Bul</h3>
+<pre>
+# Yavaş istekleri bul (1000ms üstü)
+Select-String -Path .\logs\enterprise-api-server\performance\*.txt -Pattern "Duration.*[1-9][0-9]{3,}ms"
+</pre>
+
+<h2>6. Best Practices</h2>
+
+<h3>6.1 Retention Politikası</h3>
+<pre>
+{
+  "SeparateFiles": {
+    "AllLogs": true,      // 30 gün
+    "ErrorLogs": true,    // 60 gün (2x)
+    "SecurityLogs": true  // 90 gün (3x) - Compliance
+  }
+}
+</pre>
+
+<h3>6.2 Production için Öneriler</h3>
+<pre>
+{
+  "File": {
+    "Enabled": true,
+    "BasePath": "D:\\Logs",     // Ayrı disk
+    "RetentionDays": 90,        // Daha uzun saklama
+    "MaxFileSizeMB": 50,        // Daha küçük dosyalar
+    "UseJsonFormat": true,      // JSON format (analiz için)
+    "SeparateFiles": {
+      "AllLogs": false,         // Disable (disk tasarrufu)
+      "ErrorLogs": true,
+      "RequestLogs": true,
+      "PerformanceLogs": true,
+      "BusinessLogs": true,
+      "SecurityLogs": true
+    }
+  }
+}
+</pre>
+
+<h3>6.3 Development için Öneriler</h3>
+<pre>
+{
+  "File": {
+    "Enabled": true,
+    "RetentionDays": 7,         // Kısa saklama
+    "MaxFileSizeMB": 10,        // Küçük dosyalar
+    "UseJsonFormat": false,     // Okunabilir format
+    "SeparateFiles": {
+      "AllLogs": true,
+      "ErrorLogs": true,
+      "RequestLogs": false,     // Gereksiz
+      "PerformanceLogs": false,
+      "BusinessLogs": false,
+      "SecurityLogs": false
+    }
+  }
+}
+</pre>
+
+<h2>7. Log Rotation ve Temizlik</h2>
+
+<h3>7.1 Otomatik Temizlik</h3>
+<p>Serilog, <code>RetentionDays</code> parametresine göre eski dosyaları otomatik olarak siler.</p>
+
+<h3>7.2 Manuel Temizlik (PowerShell)</h3>
+<pre>
+# 30 günden eski log dosyalarını sil
+Get-ChildItem -Path .\logs -Recurse -File | 
+    Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-30) } | 
+    Remove-Item -Force
+
+# Dosya boyutunu kontrol et
+Get-ChildItem -Path .\logs -Recurse -File | 
+    Measure-Object -Property Length -Sum | 
+    Select-Object @{N='TotalSizeMB';E={[math]::Round($_.Sum/1MB,2)}}
+</pre>
+
+<h2>8. Monitoring</h2>
+
+<h3>8.1 Disk Kullanımı İzleme</h3>
+<pre>
+# Log klasörü boyutunu izle
+$logPath = ".\logs"
+$threshold = 5GB
+
+$size = (Get-ChildItem -Path $logPath -Recurse | Measure-Object -Property Length -Sum).Sum
+if ($size -gt $threshold) {
+    Write-Warning "Log folder size exceeded threshold: $([math]::Round($size/1GB,2)) GB"
+}
+</pre>
+
+<h3>8.2 Hata Sayısı İzleme</h3>
+<pre>
+# Bugünkü hata sayısını kontrol et
+$errorCount = (Select-String -Path .\logs\*\errors\error-$(Get-Date -Format 'yyyyMMdd').txt -Pattern "\[ERR\]" | Measure-Object).Count
+Write-Host "Today's error count: $errorCount"
+</pre>
+
+<hr>
+<p style="text-align: center; color: #7f8c8d; font-size: 0.9em;">
+    Enterprise .NET 10 Application - File Logging Structure Documentation<br>
+    © 2025 Enterprise Team
+</p>
+
+</body>
+</html>
+

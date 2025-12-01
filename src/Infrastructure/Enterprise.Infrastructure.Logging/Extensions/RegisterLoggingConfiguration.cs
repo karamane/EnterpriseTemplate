@@ -85,8 +85,30 @@ public static class RegisterLoggingConfiguration
         var loggingOptions = configuration.GetSection(LoggingOptions.SectionName).Get<LoggingOptions>()
             ?? new LoggingOptions();
 
-        // Türkiye saat dilimi için Serilog yapılandırması
-        var turkeyTimeZone = TimeZoneHelper.TurkeyTimeZone;
+        var fileOptions = configuration.GetSection(Options.FileLoggingOptions.SectionName).Get<Options.FileLoggingOptions>()
+            ?? new Options.FileLoggingOptions();
+
+        // Log klasör yolunu oluştur
+        var basePath = fileOptions.BasePath;
+        var appFolder = fileOptions.UseApplicationSubfolder 
+            ? Path.Combine(basePath, applicationName.Replace(".", "-").ToLower())
+            : basePath;
+
+        // Klasörleri oluştur
+        EnsureLogDirectories(appFolder, fileOptions.SeparateFiles);
+
+        // Serilog rolling interval dönüşümü
+        var rollingInterval = ConvertRollingInterval(fileOptions.RollingInterval);
+
+        // Türkiye formatı
+        var turkeyFormat = new System.Globalization.CultureInfo("tr-TR");
+
+        // Output template'leri
+        const string consoleTemplate = "[{Timestamp:dd.MM.yyyy HH:mm:ss} {Level:u3}] [{CorrelationId}] {Message:lj}{NewLine}{Exception}";
+        const string fileTemplate = "{Timestamp:dd.MM.yyyy HH:mm:ss.fff zzz} [{Level:u3}] [{CorrelationId}] [{SourceContext}] [{MachineName}] {Message:lj}{NewLine}{Exception}";
+        const string jsonTemplate = "{ \"timestamp\": \"{Timestamp:o}\", \"level\": \"{Level}\", \"correlationId\": \"{CorrelationId}\", \"source\": \"{SourceContext}\", \"machine\": \"{MachineName}\", \"message\": {Message:lj}, \"exception\": \"{Exception}\" }";
+
+        var outputTemplate = fileOptions.UseJsonFormat ? jsonTemplate : fileTemplate;
 
         loggerConfig
             .MinimumLevel.Information()
@@ -102,18 +124,118 @@ public static class RegisterLoggingConfiguration
             .Enrich.WithProperty("ApplicationName", applicationName)
             .Enrich.WithProperty("TimeZone", "Turkey Standard Time (UTC+3)");
 
-        // Console sink - Türkiye saati formatı
+        // Console sink
         loggerConfig.WriteTo.Console(
-            outputTemplate: "[{Timestamp:dd.MM.yyyy HH:mm:ss} {Level:u3}] [{CorrelationId}] {Message:lj}{NewLine}{Exception}",
-            formatProvider: new System.Globalization.CultureInfo("tr-TR"));
+            outputTemplate: consoleTemplate,
+            formatProvider: turkeyFormat);
 
-        // File sink - Türkiye saati formatı
-        loggerConfig.WriteTo.File(
-            path: $"logs/{applicationName}-.log",
-            rollingInterval: RollingInterval.Day,
-            retainedFileCountLimit: 30,
-            outputTemplate: "{Timestamp:dd.MM.yyyy HH:mm:ss.fff} [{Level:u3}] [{CorrelationId}] [{SourceContext}] {Message:lj}{NewLine}{Exception}",
-            formatProvider: new System.Globalization.CultureInfo("tr-TR"));
+        // File sinks
+        if (fileOptions.Enabled)
+        {
+            // 1. Tüm loglar
+            if (fileOptions.SeparateFiles.AllLogs)
+            {
+                loggerConfig.WriteTo.File(
+                    path: Path.Combine(appFolder, "all", "log-.txt"),
+                    rollingInterval: rollingInterval,
+                    retainedFileCountLimit: fileOptions.RetentionDays,
+                    fileSizeLimitBytes: fileOptions.MaxFileSizeMB * 1024 * 1024,
+                    rollOnFileSizeLimit: true,
+                    outputTemplate: outputTemplate,
+                    formatProvider: turkeyFormat,
+                    shared: true);
+            }
+
+            // 2. Error ve üstü loglar
+            if (fileOptions.SeparateFiles.ErrorLogs)
+            {
+                loggerConfig.WriteTo.Logger(lc => lc
+                    .Filter.ByIncludingOnly(e => e.Level >= LogEventLevel.Error)
+                    .WriteTo.File(
+                        path: Path.Combine(appFolder, "errors", "error-.txt"),
+                        rollingInterval: rollingInterval,
+                        retainedFileCountLimit: fileOptions.RetentionDays * 2, // Hataları daha uzun tut
+                        fileSizeLimitBytes: fileOptions.MaxFileSizeMB * 1024 * 1024,
+                        rollOnFileSizeLimit: true,
+                        outputTemplate: outputTemplate,
+                        formatProvider: turkeyFormat,
+                        shared: true));
+            }
+
+            // 3. Request/Response logları (SourceContext filtrelemesi)
+            if (fileOptions.SeparateFiles.RequestLogs)
+            {
+                loggerConfig.WriteTo.Logger(lc => lc
+                    .Filter.ByIncludingOnly(e => 
+                        e.Properties.ContainsKey("LogType") && 
+                        (e.Properties["LogType"].ToString().Contains("Request") || 
+                         e.Properties["LogType"].ToString().Contains("Response")))
+                    .WriteTo.File(
+                        path: Path.Combine(appFolder, "requests", "request-.txt"),
+                        rollingInterval: rollingInterval,
+                        retainedFileCountLimit: fileOptions.RetentionDays,
+                        fileSizeLimitBytes: fileOptions.MaxFileSizeMB * 1024 * 1024,
+                        rollOnFileSizeLimit: true,
+                        outputTemplate: outputTemplate,
+                        formatProvider: turkeyFormat,
+                        shared: true));
+            }
+
+            // 4. Performance logları
+            if (fileOptions.SeparateFiles.PerformanceLogs)
+            {
+                loggerConfig.WriteTo.Logger(lc => lc
+                    .Filter.ByIncludingOnly(e => 
+                        e.Properties.ContainsKey("LogType") && 
+                        e.Properties["LogType"].ToString().Contains("Performance"))
+                    .WriteTo.File(
+                        path: Path.Combine(appFolder, "performance", "perf-.txt"),
+                        rollingInterval: rollingInterval,
+                        retainedFileCountLimit: fileOptions.RetentionDays,
+                        fileSizeLimitBytes: fileOptions.MaxFileSizeMB * 1024 * 1024,
+                        rollOnFileSizeLimit: true,
+                        outputTemplate: outputTemplate,
+                        formatProvider: turkeyFormat,
+                        shared: true));
+            }
+
+            // 5. Business exception logları
+            if (fileOptions.SeparateFiles.BusinessLogs)
+            {
+                loggerConfig.WriteTo.Logger(lc => lc
+                    .Filter.ByIncludingOnly(e => 
+                        e.Properties.ContainsKey("LogType") && 
+                        e.Properties["LogType"].ToString().Contains("Business"))
+                    .WriteTo.File(
+                        path: Path.Combine(appFolder, "business", "business-.txt"),
+                        rollingInterval: rollingInterval,
+                        retainedFileCountLimit: fileOptions.RetentionDays * 2,
+                        fileSizeLimitBytes: fileOptions.MaxFileSizeMB * 1024 * 1024,
+                        rollOnFileSizeLimit: true,
+                        outputTemplate: outputTemplate,
+                        formatProvider: turkeyFormat,
+                        shared: true));
+            }
+
+            // 6. Security/Audit logları
+            if (fileOptions.SeparateFiles.SecurityLogs)
+            {
+                loggerConfig.WriteTo.Logger(lc => lc
+                    .Filter.ByIncludingOnly(e => 
+                        e.Properties.ContainsKey("LogType") && 
+                        (e.Properties["LogType"].ToString().Contains("Security") || 
+                         e.Properties["LogType"].ToString().Contains("Audit")))
+                    .WriteTo.File(
+                        path: Path.Combine(appFolder, "security", "audit-.txt"),
+                        rollingInterval: rollingInterval,
+                        retainedFileCountLimit: fileOptions.RetentionDays * 3, // Audit logları daha uzun tut
+                        fileSizeLimitBytes: fileOptions.MaxFileSizeMB * 1024 * 1024,
+                        rollOnFileSizeLimit: true,
+                        outputTemplate: outputTemplate,
+                        formatProvider: turkeyFormat,
+                        shared: true));
+            }
+        }
 
         // ELK sink (koşullu)
         if (loggingOptions.Elk.Enabled)
@@ -127,7 +249,7 @@ public static class RegisterLoggingConfiguration
                 NumberOfReplicas = loggingOptions.Elk.NumberOfReplicas ?? 1,
                 BatchPostingLimit = loggingOptions.Elk.BatchSize,
                 Period = TimeSpan.FromSeconds(loggingOptions.Elk.FlushIntervalSeconds),
-                BufferBaseFilename = loggingOptions.Elk.BufferPath ?? $"./logs/elk-buffer-{applicationName}",
+                BufferBaseFilename = loggingOptions.Elk.BufferPath ?? Path.Combine(appFolder, "elk-buffer"),
                 ModifyConnectionSettings = conn =>
                 {
                     if (!string.IsNullOrEmpty(loggingOptions.Elk.Username))
@@ -140,6 +262,46 @@ public static class RegisterLoggingConfiguration
         }
 
         return loggerConfig;
+    }
+
+    /// <summary>
+    /// Log klasörlerini oluşturur
+    /// </summary>
+    private static void EnsureLogDirectories(string basePath, SeparateLogFilesOptions options)
+    {
+        var directories = new List<string> { basePath };
+
+        if (options.AllLogs) directories.Add(Path.Combine(basePath, "all"));
+        if (options.ErrorLogs) directories.Add(Path.Combine(basePath, "errors"));
+        if (options.RequestLogs) directories.Add(Path.Combine(basePath, "requests"));
+        if (options.PerformanceLogs) directories.Add(Path.Combine(basePath, "performance"));
+        if (options.BusinessLogs) directories.Add(Path.Combine(basePath, "business"));
+        if (options.SecurityLogs) directories.Add(Path.Combine(basePath, "security"));
+
+        foreach (var dir in directories)
+        {
+            if (!Directory.Exists(dir))
+            {
+                Directory.CreateDirectory(dir);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Rolling interval dönüşümü
+    /// </summary>
+    private static RollingInterval ConvertRollingInterval(Options.LogRollingInterval interval)
+    {
+        return interval switch
+        {
+            Options.LogRollingInterval.Infinite => RollingInterval.Infinite,
+            Options.LogRollingInterval.Year => RollingInterval.Year,
+            Options.LogRollingInterval.Month => RollingInterval.Month,
+            Options.LogRollingInterval.Day => RollingInterval.Day,
+            Options.LogRollingInterval.Hour => RollingInterval.Hour,
+            Options.LogRollingInterval.Minute => RollingInterval.Minute,
+            _ => RollingInterval.Day
+        };
     }
 }
 

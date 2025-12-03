@@ -17,8 +17,9 @@
     <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" />
     <PackageReference Include="Dapper" />
     <PackageReference Include="Microsoft.Data.SqlClient" />
-    <!-- Oracle kullanılacaksa bu paketi ekleyin -->
-    <!-- <PackageReference Include="Oracle.EntityFrameworkCore" /> -->
+    <!-- Oracle Support -->
+    <PackageReference Include="Oracle.EntityFrameworkCore" />
+    <PackageReference Include="Oracle.ManagedDataAccess.Core" />
   </ItemGroup>
 
 </Project>

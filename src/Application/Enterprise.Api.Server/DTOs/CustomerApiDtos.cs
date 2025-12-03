@@ -9,7 +9,7 @@ namespace Enterprise.Api.Server.DTOs;
 /// Customer API Response
 /// </summary>
 public record CustomerApiResponse(
-    Guid Id,
+    long Id,
     string FirstName,
     string LastName,
     string Email,
@@ -31,7 +31,7 @@ public record CreateCustomerApiRequest(
 /// Create Customer API Response
 /// </summary>
 public record CreateCustomerApiResponse(
-    Guid Id,
+    long Id,
     string FirstName,
     string LastName,
     string Email,

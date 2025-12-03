@@ -29,10 +29,10 @@ public class CustomersController : ControllerBase
     /// <summary>
     /// Müşteri bilgisi getirir (Mobil için optimize edilmiş)
     /// </summary>
-    [HttpGet("{id}")]
+    [HttpGet("{id:long}")]
     [ProducesResponseType(typeof(CustomerDetailClientResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> GetById(Guid id)
+    public async Task<IActionResult> GetById(long id)
     {
         // Server API'ye istek gönder
         var serverResponse = await _serverApiClient.GetAsync<ServerApiResponse<ServerCustomerResponse>>(

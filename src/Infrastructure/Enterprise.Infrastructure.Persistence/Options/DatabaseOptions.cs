@@ -8,14 +8,22 @@ public class DatabaseOptions
     public const string SectionName = "Database";
 
     /// <summary>
-    /// Veritabanı provider tipi (SqlServer, Oracle)
+    /// Veritabanı provider tipi (SqlServer, Oracle, PostgreSql, MySql, SQLite)
     /// </summary>
     public DatabaseProvider Provider { get; set; } = DatabaseProvider.SqlServer;
 
     /// <summary>
-    /// Connection string
+    /// Provider'a göre connection string'ler
+    /// Örnek: { "SqlServer": "...", "Oracle": "..." }
     /// </summary>
-    public string ConnectionString { get; set; } = string.Empty;
+    public Dictionary<string, string> ConnectionStrings { get; set; } = new();
+
+    /// <summary>
+    /// Aktif provider'ın connection string'ini döner
+    /// </summary>
+    public string ConnectionString => ConnectionStrings.TryGetValue(Provider.ToString(), out var cs) 
+        ? cs 
+        : ConnectionStrings.Values.FirstOrDefault() ?? string.Empty;
 
     /// <summary>
     /// ORM tipi (EfCore, Dapper)

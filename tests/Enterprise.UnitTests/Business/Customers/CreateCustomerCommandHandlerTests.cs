@@ -5,7 +5,6 @@ using Enterprise.Core.Domain.Entities.Sample;
 using Enterprise.Core.Shared.Exceptions;
 using Enterprise.UnitTests.Base;
 using FluentAssertions;
-using Microsoft.Extensions.Logging;
 using Moq;
 using System.Linq.Expressions;
 using Xunit;
@@ -18,18 +17,16 @@ namespace Enterprise.UnitTests.Business.Customers;
 /// </summary>
 public class CreateCustomerCommandHandlerTests : TestBase
 {
-    private readonly Mock<IRepository<Customer>> _customerRepositoryMock;
+    private readonly Mock<IRepository<Customer, long>> _customerRepositoryMock;
     private readonly Mock<IUnitOfWork> _unitOfWorkMock;
-    private readonly Mock<ILogger<CreateCustomerCommandHandler>> _loggerMock;
     private readonly Mock<ICorrelationContext> _correlationContextMock;
     private readonly Mock<ILogService> _logServiceMock;
     private readonly CreateCustomerCommandHandler _handler;
 
     public CreateCustomerCommandHandlerTests()
     {
-        _customerRepositoryMock = CreateMock<IRepository<Customer>>();
+        _customerRepositoryMock = CreateMock<IRepository<Customer, long>>();
         _unitOfWorkMock = CreateMock<IUnitOfWork>();
-        _loggerMock = CreateMock<ILogger<CreateCustomerCommandHandler>>();
         _correlationContextMock = CreateMock<ICorrelationContext>();
         _logServiceMock = CreateMock<ILogService>();
 
@@ -39,7 +36,6 @@ public class CreateCustomerCommandHandlerTests : TestBase
         _handler = new CreateCustomerCommandHandler(
             _customerRepositoryMock.Object,
             _unitOfWorkMock.Object,
-            _loggerMock.Object,
             _correlationContextMock.Object,
             _logServiceMock.Object);
     }

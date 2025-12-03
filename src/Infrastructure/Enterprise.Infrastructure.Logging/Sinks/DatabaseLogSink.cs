@@ -1,4 +1,5 @@
 using System.Data;
+using System.Data.Common;
 using System.Text.Json;
 using Dapper;
 using Enterprise.Core.Application.Models.Logging;
@@ -7,17 +8,19 @@ using Enterprise.Infrastructure.Logging.Services;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Oracle.ManagedDataAccess.Client;
 
 namespace Enterprise.Infrastructure.Logging.Sinks;
 
 /// <summary>
 /// Database log sink
-/// Logları SQL Server'a yazar
+/// Logları SQL Server veya Oracle'a yazar
 /// </summary>
 public class DatabaseLogSink : ILogSink
 {
     private readonly ILogger<DatabaseLogSink> _logger;
     private readonly DatabaseLogOptions _options;
+    private readonly bool _isOracle;
 
     public string Name => "Database";
     public bool IsEnabled => _options.Enabled && !string.IsNullOrEmpty(_options.ConnectionString);
@@ -28,6 +31,22 @@ public class DatabaseLogSink : ILogSink
     {
         _logger = logger;
         _options = options.Value.Database;
+        _isOracle = _options.Provider.Equals("Oracle", StringComparison.OrdinalIgnoreCase);
+        
+        // Debug: Log configuration values
+        _logger.LogInformation(
+            "DatabaseLogSink initialized: Provider={Provider}, IsOracle={IsOracle}, ConnectionString={ConnectionString}, Enabled={Enabled}",
+            _options.Provider,
+            _isOracle,
+            string.IsNullOrEmpty(_options.ConnectionString) ? "(empty)" : "(set)",
+            _options.Enabled);
+    }
+
+    private DbConnection CreateConnection()
+    {
+        return _isOracle
+            ? new OracleConnection(_options.ConnectionString)
+            : new SqlConnection(_options.ConnectionString);
     }
 
     public async Task WriteAsync(BaseLogEntry entry, CancellationToken cancellationToken = default)
@@ -46,7 +65,7 @@ public class DatabaseLogSink : ILogSink
 
         try
         {
-            await using var connection = new SqlConnection(_options.ConnectionString);
+            await using var connection = CreateConnection();
             await connection.OpenAsync(cancellationToken);
 
             // Log türlerine göre grupla ve uygun tablolara yaz
@@ -62,19 +81,19 @@ public class DatabaseLogSink : ILogSink
             try
             {
                 if (requestLogs.Any())
-                    await InsertRequestLogsAsync(connection, transaction, requestLogs);
+                    await InsertRequestLogsAsync(connection, transaction, requestLogs, _isOracle);
 
                 if (responseLogs.Any())
-                    await InsertResponseLogsAsync(connection, transaction, responseLogs);
+                    await InsertResponseLogsAsync(connection, transaction, responseLogs, _isOracle);
 
                 if (exceptionLogs.Any())
-                    await InsertExceptionLogsAsync(connection, transaction, exceptionLogs);
+                    await InsertExceptionLogsAsync(connection, transaction, exceptionLogs, _isOracle);
 
                 if (businessExceptionLogs.Any())
-                    await InsertBusinessExceptionLogsAsync(connection, transaction, businessExceptionLogs);
+                    await InsertBusinessExceptionLogsAsync(connection, transaction, businessExceptionLogs, _isOracle);
 
                 if (auditLogs.Any())
-                    await InsertAuditLogsAsync(connection, transaction, auditLogs);
+                    await InsertAuditLogsAsync(connection, transaction, auditLogs, _isOracle);
 
                 await transaction.CommitAsync(cancellationToken);
             }
@@ -92,19 +111,28 @@ public class DatabaseLogSink : ILogSink
     }
 
     private static async Task InsertRequestLogsAsync(
-        SqlConnection connection,
+        DbConnection connection,
         IDbTransaction transaction,
-        IEnumerable<RequestLogEntry> entries)
+        IEnumerable<RequestLogEntry> entries,
+        bool isOracle)
     {
-        const string sql = @"
-            INSERT INTO [Log].[RequestLogs] 
-            ([LogId], [CorrelationId], [Timestamp], [HttpMethod], [RequestPath], [QueryString], 
-             [RequestBody], [RequestHeaders], [ContentType], [ContentLength], [ClientIp], 
-             [UserAgent], [UserId], [Layer], [ServerName], [ApplicationName])
-            VALUES 
-            (@LogId, @CorrelationId, @Timestamp, @HttpMethod, @RequestPath, @QueryString,
-             @RequestBody, @RequestHeaders, @ContentType, @ContentLength, @ClientIp,
-             @UserAgent, @UserId, @Layer, @ServerName, @ApplicationName)";
+        var sql = isOracle
+            ? @"INSERT INTO LOG_REQUEST_LOGS 
+                (LOG_ID, CORRELATION_ID, TIMESTAMP, HTTP_METHOD, REQUEST_PATH, QUERY_STRING, 
+                 REQUEST_BODY, REQUEST_HEADERS, CONTENT_TYPE, CONTENT_LENGTH, CLIENT_IP, 
+                 USER_AGENT, USER_ID, LAYER, SERVER_NAME, APPLICATION_NAME)
+                VALUES 
+                (:LogId, :CorrelationId, :Timestamp, :HttpMethod, :RequestPath, :QueryString,
+                 :RequestBody, :RequestHeaders, :ContentType, :ContentLength, :ClientIp,
+                 :UserAgent, :UserId, :Layer, :ServerName, :ApplicationName)"
+            : @"INSERT INTO [Log].[RequestLogs] 
+                ([LogId], [CorrelationId], [Timestamp], [HttpMethod], [RequestPath], [QueryString], 
+                 [RequestBody], [RequestHeaders], [ContentType], [ContentLength], [ClientIp], 
+                 [UserAgent], [UserId], [Layer], [ServerName], [ApplicationName])
+                VALUES 
+                (@LogId, @CorrelationId, @Timestamp, @HttpMethod, @RequestPath, @QueryString,
+                 @RequestBody, @RequestHeaders, @ContentType, @ContentLength, @ClientIp,
+                 @UserAgent, @UserId, @Layer, @ServerName, @ApplicationName)";
 
         var parameters = entries.Select(e => new
         {
@@ -130,19 +158,28 @@ public class DatabaseLogSink : ILogSink
     }
 
     private static async Task InsertResponseLogsAsync(
-        SqlConnection connection,
+        DbConnection connection,
         IDbTransaction transaction,
-        IEnumerable<ResponseLogEntry> entries)
+        IEnumerable<ResponseLogEntry> entries,
+        bool isOracle)
     {
-        const string sql = @"
-            INSERT INTO [Log].[ResponseLogs]
-            ([LogId], [CorrelationId], [RequestLogId], [Timestamp], [StatusCode], [DurationMs],
-             [ResponseBody], [ContentType], [DbQueryCount], [DbQueryDurationMs], [CacheHitCount],
-             [CacheMissCount], [Layer], [ServerName], [ApplicationName])
-            VALUES
-            (@LogId, @CorrelationId, @RequestLogId, @Timestamp, @StatusCode, @DurationMs,
-             @ResponseBody, @ContentType, @DbQueryCount, @DbQueryDurationMs, @CacheHitCount,
-             @CacheMissCount, @Layer, @ServerName, @ApplicationName)";
+        var sql = isOracle
+            ? @"INSERT INTO LOG_RESPONSE_LOGS
+                (LOG_ID, CORRELATION_ID, REQUEST_LOG_ID, TIMESTAMP, STATUS_CODE, DURATION_MS,
+                 RESPONSE_BODY, CONTENT_TYPE, DB_QUERY_COUNT, DB_QUERY_DURATION_MS, CACHE_HIT_COUNT,
+                 CACHE_MISS_COUNT, LAYER, SERVER_NAME, APPLICATION_NAME)
+                VALUES
+                (:LogId, :CorrelationId, :RequestLogId, :Timestamp, :StatusCode, :DurationMs,
+                 :ResponseBody, :ContentType, :DbQueryCount, :DbQueryDurationMs, :CacheHitCount,
+                 :CacheMissCount, :Layer, :ServerName, :ApplicationName)"
+            : @"INSERT INTO [Log].[ResponseLogs]
+                ([LogId], [CorrelationId], [RequestLogId], [Timestamp], [StatusCode], [DurationMs],
+                 [ResponseBody], [ContentType], [DbQueryCount], [DbQueryDurationMs], [CacheHitCount],
+                 [CacheMissCount], [Layer], [ServerName], [ApplicationName])
+                VALUES
+                (@LogId, @CorrelationId, @RequestLogId, @Timestamp, @StatusCode, @DurationMs,
+                 @ResponseBody, @ContentType, @DbQueryCount, @DbQueryDurationMs, @CacheHitCount,
+                 @CacheMissCount, @Layer, @ServerName, @ApplicationName)";
 
         var parameters = entries.Select(e => new
         {
@@ -167,21 +204,32 @@ public class DatabaseLogSink : ILogSink
     }
 
     private static async Task InsertExceptionLogsAsync(
-        SqlConnection connection,
+        DbConnection connection,
         IDbTransaction transaction,
-        IEnumerable<ExceptionLogEntry> entries)
+        IEnumerable<ExceptionLogEntry> entries,
+        bool isOracle)
     {
-        const string sql = @"
-            INSERT INTO [Log].[ExceptionLogs]
-            ([LogId], [CorrelationId], [Timestamp], [LogLevel], [ExceptionType], [ExceptionMessage],
-             [StackTrace], [Source], [InnerExceptionType], [InnerExceptionMessage], [Layer],
-             [ClassName], [MethodName], [RequestPath], [HttpMethod], [ExceptionCategory], 
-             [IsHandled], [IsTransient], [ServerName], [ClientIp], [UserId], [ApplicationName])
-            VALUES
-            (@LogId, @CorrelationId, @Timestamp, @LogLevel, @ExceptionType, @ExceptionMessage,
-             @StackTrace, @Source, @InnerExceptionType, @InnerExceptionMessage, @Layer,
-             @ClassName, @MethodName, @RequestPath, @HttpMethod, @ExceptionCategory,
-             @IsHandled, @IsTransient, @ServerName, @ClientIp, @UserId, @ApplicationName)";
+        var sql = isOracle
+            ? @"INSERT INTO LOG_EXCEPTION_LOGS
+                (LOG_ID, CORRELATION_ID, TIMESTAMP, LOG_LEVEL, EXCEPTION_TYPE, EXCEPTION_MESSAGE,
+                 STACK_TRACE, SOURCE, INNER_EXCEPTION_TYPE, INNER_EXCEPTION_MESSAGE, LAYER,
+                 CLASS_NAME, METHOD_NAME, REQUEST_PATH, HTTP_METHOD, EXCEPTION_CATEGORY, 
+                 IS_HANDLED, IS_TRANSIENT, SERVER_NAME, CLIENT_IP, USER_ID, APPLICATION_NAME)
+                VALUES
+                (:LogId, :CorrelationId, :Timestamp, :LogLevel, :ExceptionType, :ExceptionMessage,
+                 :StackTrace, :Source, :InnerExceptionType, :InnerExceptionMessage, :Layer,
+                 :ClassName, :MethodName, :RequestPath, :HttpMethod, :ExceptionCategory,
+                 :IsHandled, :IsTransient, :ServerName, :ClientIp, :UserId, :ApplicationName)"
+            : @"INSERT INTO [Log].[ExceptionLogs]
+                ([LogId], [CorrelationId], [Timestamp], [LogLevel], [ExceptionType], [ExceptionMessage],
+                 [StackTrace], [Source], [InnerExceptionType], [InnerExceptionMessage], [Layer],
+                 [ClassName], [MethodName], [RequestPath], [HttpMethod], [ExceptionCategory], 
+                 [IsHandled], [IsTransient], [ServerName], [ClientIp], [UserId], [ApplicationName])
+                VALUES
+                (@LogId, @CorrelationId, @Timestamp, @LogLevel, @ExceptionType, @ExceptionMessage,
+                 @StackTrace, @Source, @InnerExceptionType, @InnerExceptionMessage, @Layer,
+                 @ClassName, @MethodName, @RequestPath, @HttpMethod, @ExceptionCategory,
+                 @IsHandled, @IsTransient, @ServerName, @ClientIp, @UserId, @ApplicationName)";
 
         var parameters = entries.Select(e => new
         {
@@ -213,21 +261,32 @@ public class DatabaseLogSink : ILogSink
     }
 
     private static async Task InsertBusinessExceptionLogsAsync(
-        SqlConnection connection,
+        DbConnection connection,
         IDbTransaction transaction,
-        IEnumerable<BusinessExceptionLogEntry> entries)
+        IEnumerable<BusinessExceptionLogEntry> entries,
+        bool isOracle)
     {
-        const string sql = @"
-            INSERT INTO [Log].[BusinessExceptionLogs]
-            ([LogId], [CorrelationId], [Timestamp], [BusinessOperation], [BusinessErrorCode],
-             [BusinessErrorMessage], [UserFriendlyMessage], [SuggestedAction], [AffectedEntity],
-             [AffectedEntityId], [RuleName], [ValidationErrors], [Layer], [ClassName],
-             [ServerName], [ClientIp], [UserId], [ApplicationName])
-            VALUES
-            (@LogId, @CorrelationId, @Timestamp, @BusinessOperation, @BusinessErrorCode,
-             @BusinessErrorMessage, @UserFriendlyMessage, @SuggestedAction, @AffectedEntity,
-             @AffectedEntityId, @RuleName, @ValidationErrors, @Layer, @ClassName,
-             @ServerName, @ClientIp, @UserId, @ApplicationName)";
+        var sql = isOracle
+            ? @"INSERT INTO LOG_BUSINESS_EXCEPTION_LOGS
+                (LOG_ID, CORRELATION_ID, TIMESTAMP, BUSINESS_OPERATION, BUSINESS_ERROR_CODE,
+                 BUSINESS_ERROR_MESSAGE, USER_FRIENDLY_MESSAGE, SUGGESTED_ACTION, AFFECTED_ENTITY,
+                 AFFECTED_ENTITY_ID, RULE_NAME, VALIDATION_ERRORS, LAYER, CLASS_NAME,
+                 SERVER_NAME, CLIENT_IP, USER_ID, APPLICATION_NAME)
+                VALUES
+                (:LogId, :CorrelationId, :Timestamp, :BusinessOperation, :BusinessErrorCode,
+                 :BusinessErrorMessage, :UserFriendlyMessage, :SuggestedAction, :AffectedEntity,
+                 :AffectedEntityId, :RuleName, :ValidationErrors, :Layer, :ClassName,
+                 :ServerName, :ClientIp, :UserId, :ApplicationName)"
+            : @"INSERT INTO [Log].[BusinessExceptionLogs]
+                ([LogId], [CorrelationId], [Timestamp], [BusinessOperation], [BusinessErrorCode],
+                 [BusinessErrorMessage], [UserFriendlyMessage], [SuggestedAction], [AffectedEntity],
+                 [AffectedEntityId], [RuleName], [ValidationErrors], [Layer], [ClassName],
+                 [ServerName], [ClientIp], [UserId], [ApplicationName])
+                VALUES
+                (@LogId, @CorrelationId, @Timestamp, @BusinessOperation, @BusinessErrorCode,
+                 @BusinessErrorMessage, @UserFriendlyMessage, @SuggestedAction, @AffectedEntity,
+                 @AffectedEntityId, @RuleName, @ValidationErrors, @Layer, @ClassName,
+                 @ServerName, @ClientIp, @UserId, @ApplicationName)";
 
         var parameters = entries.Select(e => new
         {
@@ -255,19 +314,28 @@ public class DatabaseLogSink : ILogSink
     }
 
     private static async Task InsertAuditLogsAsync(
-        SqlConnection connection,
+        DbConnection connection,
         IDbTransaction transaction,
-        IEnumerable<AuditLogEntry> entries)
+        IEnumerable<AuditLogEntry> entries,
+        bool isOracle)
     {
-        const string sql = @"
-            INSERT INTO [Log].[AuditLogs]
-            ([LogId], [CorrelationId], [Timestamp], [Action], [EntityType], [EntityId],
-             [OldValues], [NewValues], [Changes], [IsSuccess], [FailureReason], [DurationMs],
-             [Layer], [UserId], [ClientIp], [ServerName], [ApplicationName])
-            VALUES
-            (@LogId, @CorrelationId, @Timestamp, @Action, @EntityType, @EntityId,
-             @OldValues, @NewValues, @Changes, @IsSuccess, @FailureReason, @DurationMs,
-             @Layer, @UserId, @ClientIp, @ServerName, @ApplicationName)";
+        var sql = isOracle
+            ? @"INSERT INTO LOG_AUDIT_LOGS
+                (LOG_ID, CORRELATION_ID, TIMESTAMP, ACTION, ENTITY_TYPE, ENTITY_ID,
+                 OLD_VALUES, NEW_VALUES, CHANGES, IS_SUCCESS, FAILURE_REASON, DURATION_MS,
+                 LAYER, USER_ID, CLIENT_IP, SERVER_NAME, APPLICATION_NAME)
+                VALUES
+                (:LogId, :CorrelationId, :Timestamp, :Action, :EntityType, :EntityId,
+                 :OldValues, :NewValues, :Changes, :IsSuccess, :FailureReason, :DurationMs,
+                 :Layer, :UserId, :ClientIp, :ServerName, :ApplicationName)"
+            : @"INSERT INTO [Log].[AuditLogs]
+                ([LogId], [CorrelationId], [Timestamp], [Action], [EntityType], [EntityId],
+                 [OldValues], [NewValues], [Changes], [IsSuccess], [FailureReason], [DurationMs],
+                 [Layer], [UserId], [ClientIp], [ServerName], [ApplicationName])
+                VALUES
+                (@LogId, @CorrelationId, @Timestamp, @Action, @EntityType, @EntityId,
+                 @OldValues, @NewValues, @Changes, @IsSuccess, @FailureReason, @DurationMs,
+                 @Layer, @UserId, @ClientIp, @ServerName, @ApplicationName)";
 
         var parameters = entries.Select(e => new
         {

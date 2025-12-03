@@ -2,6 +2,7 @@ using System.Data;
 using Enterprise.Infrastructure.Persistence.Options;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Options;
+using Oracle.ManagedDataAccess.Client;
 
 namespace Enterprise.Infrastructure.Persistence.Factories;
 
@@ -46,7 +47,7 @@ public class DbConnectionFactory : IDbConnectionFactory
         return _options.Provider switch
         {
             DatabaseProvider.SqlServer => new SqlConnection(_options.ConnectionString),
-            DatabaseProvider.Oracle => CreateOracleConnection(),
+            DatabaseProvider.Oracle => new OracleConnection(_options.ConnectionString),
             DatabaseProvider.PostgreSql => CreatePostgreSqlConnection(),
             DatabaseProvider.MySql => CreateMySqlConnection(),
             DatabaseProvider.SQLite => CreateSQLiteConnection(),
@@ -58,14 +59,18 @@ public class DbConnectionFactory : IDbConnectionFactory
     {
         var connection = CreateConnection();
 
-        if (connection is SqlConnection sqlConnection)
+        switch (connection)
         {
-            await sqlConnection.OpenAsync(cancellationToken);
-        }
-        else
-        {
-            // Diğer provider'lar için generic Open
-            connection.Open();
+            case SqlConnection sqlConnection:
+                await sqlConnection.OpenAsync(cancellationToken);
+                break;
+            case OracleConnection oracleConnection:
+                await oracleConnection.OpenAsync(cancellationToken);
+                break;
+            default:
+                // Diğer provider'lar için generic Open
+                connection.Open();
+                break;
         }
 
         return connection;
@@ -73,38 +78,6 @@ public class DbConnectionFactory : IDbConnectionFactory
 
     #region Provider Specific Connection Creators
 
-    private IDbConnection CreateOracleConnection()
-    {
-        // Oracle.ManagedDataAccess.Core paketi gerekli
-        // PM> Install-Package Oracle.ManagedDataAccess.Core
-        
-        // Dynamic loading ile Oracle bağımlılığını opsiyonel tutuyoruz
-        var oracleAssembly = AppDomain.CurrentDomain.GetAssemblies()
-            .FirstOrDefault(a => a.GetName().Name == "Oracle.ManagedDataAccess");
-
-        if (oracleAssembly == null)
-        {
-            try
-            {
-                oracleAssembly = System.Reflection.Assembly.Load("Oracle.ManagedDataAccess");
-            }
-            catch
-            {
-                throw new InvalidOperationException(
-                    "Oracle provider is configured but Oracle.ManagedDataAccess.Core package is not installed. " +
-                    "Please install: dotnet add package Oracle.ManagedDataAccess.Core");
-            }
-        }
-
-        var connectionType = oracleAssembly.GetType("Oracle.ManagedDataAccess.Client.OracleConnection");
-        if (connectionType == null)
-        {
-            throw new InvalidOperationException("OracleConnection type not found in Oracle.ManagedDataAccess assembly.");
-        }
-
-        var connection = Activator.CreateInstance(connectionType, _options.ConnectionString) as IDbConnection;
-        return connection ?? throw new InvalidOperationException("Failed to create Oracle connection.");
-    }
 
     private IDbConnection CreatePostgreSqlConnection()
     {

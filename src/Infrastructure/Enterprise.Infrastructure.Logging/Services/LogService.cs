@@ -245,9 +245,73 @@ public class LoggingOptions
 public class DatabaseLogOptions
 {
     public bool Enabled { get; set; }
-    public string? ConnectionString { get; set; }
+    
+    /// <summary>
+    /// Database provider: SqlServer, Oracle
+    /// </summary>
+    public string Provider { get; set; } = "SqlServer";
+    
+    /// <summary>
+    /// Provider'a göre connection string'ler
+    /// </summary>
+    public Dictionary<string, string> ConnectionStrings { get; set; } = new();
+    
+    /// <summary>
+    /// Aktif provider'ın connection string'i
+    /// </summary>
+    public string? ConnectionString => ConnectionStrings.TryGetValue(Provider, out var cs) 
+        ? cs 
+        : ConnectionStrings.Values.FirstOrDefault();
+    
     public int BatchSize { get; set; } = 100;
     public int FlushIntervalSeconds { get; set; } = 5;
+    
+    /// <summary>
+    /// Hangi log tiplerinin database'e yazılacağı
+    /// </summary>
+    public LogTypeOptions LogTypes { get; set; } = new();
+}
+
+/// <summary>
+/// Log tipi açma/kapama seçenekleri
+/// File ve Database için ayrı ayrı yapılandırılabilir
+/// </summary>
+public class LogTypeOptions
+{
+    /// <summary>
+    /// Request logları (HTTP request bilgileri)
+    /// </summary>
+    public bool RequestLogs { get; set; } = true;
+    
+    /// <summary>
+    /// Response logları (HTTP response bilgileri)
+    /// </summary>
+    public bool ResponseLogs { get; set; } = true;
+    
+    /// <summary>
+    /// Exception logları (sistem hataları)
+    /// </summary>
+    public bool ExceptionLogs { get; set; } = true;
+    
+    /// <summary>
+    /// Business exception logları (iş kuralı hataları)
+    /// </summary>
+    public bool BusinessExceptionLogs { get; set; } = true;
+    
+    /// <summary>
+    /// Audit logları (veri değişiklikleri)
+    /// </summary>
+    public bool AuditLogs { get; set; } = true;
+    
+    /// <summary>
+    /// Performance logları (yavaş sorgular vb.)
+    /// </summary>
+    public bool PerformanceLogs { get; set; } = true;
+    
+    /// <summary>
+    /// Security logları (auth, yetkilendirme)
+    /// </summary>
+    public bool SecurityLogs { get; set; } = true;
 }
 
 /// <summary>

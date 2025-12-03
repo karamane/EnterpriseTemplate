@@ -1,0 +1,459 @@
+# Enterprise Template - Project Rules & Guidelines
+
+## 🏗️ Architecture Rules
+
+### Layer Separation
+- **Client API (DMZ)**: Presentation layer for external consumers (mobile, web clients)
+  - ❌ NO direct database access
+  - ❌ NO EF Core DbContext usage
+  - ✅ Only communicates with Server API via HTTP
+  - ✅ Logs only to FILE (not database)
+  - ✅ Stateless design
+
+- **Server API (Internal)**: Business logic and data access
+  - ✅ Can access database via repositories
+  - ✅ Logs to FILE and DATABASE
+  - ✅ Contains business rules and validations
+
+### Project References
+```
+Enterprise.Api.Client (DMZ)
+├── Enterprise.Core.Shared (only)
+├── Enterprise.Infrastructure.Logging (file logging only)
+└── Enterprise.Infrastructure.CrossCutting
+    ❌ NO reference to Enterprise.Infrastructure.Persistence
+    ❌ NO reference to Enterprise.Core.Domain
+    ❌ NO reference to Enterprise.Business
+
+Enterprise.Api.Server (Internal)
+├── Enterprise.Business
+├── Enterprise.Infrastructure.Persistence
+├── Enterprise.Infrastructure.Logging
+└── All other internal projects
+```
+
+## 📝 Logging Rules
+
+### Central Logging Architecture
+- Logs MUST be handled centrally via middleware and behaviors
+- ❌ NO logging in CommandHandlers or business logic directly
+- ❌ NO `_logger.LogInformation()` in business methods
+- ✅ Use `AutoLoggingBehavior` for MediatR pipelines
+- ✅ Use `RequestLoggingMiddleware` for HTTP requests
+- ✅ Use `ExceptionLoggingMiddleware` for errors
+
+### Log Configuration
+Each log type should be independently configurable:
+```json
+{
+  "Logging": {
+    "File": {
+      "Enabled": true,
+      "SeparateFiles": {
+        "AllLogs": true,
+        "ErrorLogs": true,
+        "RequestLogs": true,
+        "PerformanceLogs": true,
+        "BusinessLogs": true,
+        "SecurityLogs": true
+      }
+    },
+    "Database": {
+      "Enabled": true,  // Server API only
+      "Provider": "Oracle"
+    }
+  }
+}
+```
+
+### Client API Logging
+```json
+{
+  "Logging": {
+    "File": { "Enabled": true },
+    "Database": { "Enabled": false }  // ALWAYS false for Client API
+  }
+}
+```
+
+## 🗄️ Database Rules
+
+### Provider Agnostic Design
+- All database operations MUST work with both SqlServer and Oracle
+- Use `Provider` configuration to switch databases
+- ❌ NO provider-specific SQL in business code
+- ✅ Provider-specific SQL only in Infrastructure layer
+
+### Entity Configuration
+- Use UPPERCASE column names for Oracle compatibility
+- No schema prefix (avoid `dbo.`)
+- Use `ValueGeneratedOnAdd()` for identity columns
+- Use `long` for Oracle numeric IDs, `Guid` for SqlServer
+
+### Connection String Pattern
+```json
+{
+  "Database": {
+    "Provider": "Oracle",
+    "ConnectionStrings": {
+      "SqlServer": "...",
+      "Oracle": "..."
+    }
+  }
+}
+```
+
+## 🧹 SOLID & Clean Code
+
+### Single Responsibility
+- One class = one purpose
+- CommandHandlers only orchestrate, no business logic
+- Validators only validate
+- Repositories only data access
+
+### Dependency Injection
+- All dependencies via constructor injection
+- Use interfaces, not concrete implementations
+- Register services in `Register*Configuration.cs` files
+
+### Code Organization
+```
+Feature/
+├── Commands/
+│   ├── CreateCustomer/
+│   │   ├── CreateCustomerCommand.cs
+│   │   ├── CreateCustomerCommandHandler.cs
+│   │   └── CreateCustomerCommandValidator.cs
+│   └── UpdateCustomer/
+└── Queries/
+    └── GetCustomerById/
+```
+
+### Naming Conventions
+- Commands: `{Action}{Entity}Command`
+- Queries: `Get{Entity}By{Criteria}Query`
+- Handlers: `{Command/Query}Handler`
+- Validators: `{Command}Validator`
+
+## 📚 Documentation Rules
+
+### Required Updates
+After ANY code change, update relevant documentation:
+- `docs/01-PROJECT-PROMPTS.md` - Architecture decisions
+- `docs/02-LOGGING-ARCHITECTURE-REPORT.md` - Logging changes
+- `docs/03-HIGH-LEVEL-DESIGN.md` - Design changes
+- `docs/scripts/oracle-ddl.sql` - Database schema changes
+
+### Documentation Checklist
+- [ ] New features documented
+- [ ] API changes reflected
+- [ ] Configuration examples updated
+- [ ] Breaking changes noted
+
+## ⚠️ Error Handling
+
+### Exception Strategy
+- Use custom exceptions: `BusinessException`, `NotFoundException`, `ValidationException`
+- Handle exceptions in `ExceptionHandlingBehavior` (MediatR)
+- Handle HTTP exceptions in `ExceptionLoggingMiddleware`
+- ❌ NO try-catch in business logic (unless re-throwing)
+
+### Error Response Format
+```json
+{
+  "success": false,
+  "errorCode": "CUSTOMER_NOT_FOUND",
+  "message": "User friendly message",
+  "correlationId": "xxx-xxx"
+}
+```
+
+## 🔒 Security Rules
+
+### Sensitive Data
+- Use `SensitiveDataMasker` for logging
+- Never log passwords, tokens, credit cards
+- Mask PII in logs automatically
+
+### API Security
+- JWT authentication for Server API
+- API Key authentication for Client API (optional)
+- CORS properly configured
+
+## 🧪 Testing Rules
+
+### ⚡ AUTO-GENERATE UNIT TESTS
+**Her yeni API metodu veya Handler yazıldığında otomatik olarak unit test oluştur!**
+
+Hedef: **Minimum %80 code coverage**
+
+### Test Generation Checklist
+Yeni bir metot yazıldığında şu testleri OTOMATIK oluştur:
+
+#### 1. CommandHandler Tests
+```csharp
+// Her CommandHandler için şu senaryoları test et:
+✅ Handle_ShouldReturnSuccess_WhenValidRequest
+✅ Handle_ShouldReturnFailure_WhenEntityNotFound
+✅ Handle_ShouldReturnFailure_WhenDuplicateExists
+✅ Handle_ShouldThrowValidationException_WhenInvalidInput
+✅ Handle_ShouldCallRepository_WithCorrectParameters
+✅ Handle_ShouldCallUnitOfWork_SaveChanges
+✅ Handle_ShouldReturnCorrectResponse_WhenSuccess
+```
+
+#### 2. QueryHandler Tests
+```csharp
+// Her QueryHandler için şu senaryoları test et:
+✅ Handle_ShouldReturnData_WhenEntityExists
+✅ Handle_ShouldThrowNotFoundException_WhenEntityNotFound
+✅ Handle_ShouldReturnCorrectDto_WithAllFieldsMapped
+✅ Handle_ShouldCallRepository_WithCorrectId
+```
+
+#### 3. Validator Tests
+```csharp
+// Her Validator için şu senaryoları test et:
+✅ Validate_ShouldPass_WhenAllFieldsValid
+✅ Validate_ShouldFail_WhenRequiredFieldEmpty (her alan için)
+✅ Validate_ShouldFail_WhenFieldExceedsMaxLength (her alan için)
+✅ Validate_ShouldFail_WhenInvalidFormat (email, phone vb.)
+✅ Validate_ShouldReturnCorrectErrorMessage
+```
+
+#### 4. Controller/API Tests
+```csharp
+// Her API endpoint için şu senaryoları test et:
+✅ Endpoint_ShouldReturn200_WhenSuccess
+✅ Endpoint_ShouldReturn201_WhenCreated
+✅ Endpoint_ShouldReturn400_WhenBadRequest
+✅ Endpoint_ShouldReturn404_WhenNotFound
+✅ Endpoint_ShouldReturn422_WhenValidationFails
+✅ Endpoint_ShouldReturn500_WhenUnhandledException
+```
+
+#### 5. Repository Tests (Integration)
+```csharp
+// Her Repository metodu için:
+✅ Method_ShouldReturnEntity_WhenExists
+✅ Method_ShouldReturnNull_WhenNotExists
+✅ Method_ShouldPersistEntity_WhenAdded
+✅ Method_ShouldUpdateEntity_WhenModified
+✅ Method_ShouldSoftDelete_WhenDeleted
+```
+
+### Test File Structure
+```
+tests/
+├── Enterprise.UnitTests/
+│   ├── Business/
+│   │   └── Customers/
+│   │       ├── CreateCustomerCommandHandlerTests.cs
+│   │       ├── CreateCustomerCommandValidatorTests.cs
+│   │       ├── GetCustomerByIdQueryHandlerTests.cs
+│   │       └── UpdateCustomerCommandHandlerTests.cs
+│   └── Infrastructure/
+│       └── Repositories/
+│           └── CustomerRepositoryTests.cs
+├── Enterprise.IntegrationTests/
+│   └── Api/
+│       └── CustomersControllerTests.cs
+└── Enterprise.ArchitectureTests/
+    └── LayerDependencyTests.cs
+```
+
+### Test Template - CommandHandler
+```csharp
+public class Create{Entity}CommandHandlerTests
+{
+    private readonly Mock<IRepository<{Entity}, long>> _repositoryMock;
+    private readonly Mock<IUnitOfWork> _unitOfWorkMock;
+    private readonly Create{Entity}CommandHandler _handler;
+    private readonly Fixture _fixture;
+
+    public Create{Entity}CommandHandlerTests()
+    {
+        _fixture = new Fixture();
+        _repositoryMock = new Mock<IRepository<{Entity}, long>>();
+        _unitOfWorkMock = new Mock<IUnitOfWork>();
+        _handler = new Create{Entity}CommandHandler(
+            _repositoryMock.Object,
+            _unitOfWorkMock.Object,
+            /* other dependencies */);
+    }
+
+    [Fact]
+    public async Task Handle_ShouldReturnSuccess_WhenValidRequest()
+    {
+        // Arrange
+        var command = _fixture.Create<Create{Entity}Command>();
+        _repositoryMock.Setup(x => x.ExistsAsync(It.IsAny<Expression<Func<{Entity}, bool>>>(), default))
+            .ReturnsAsync(false);
+
+        // Act
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        result.IsSuccess.Should().BeTrue();
+        _repositoryMock.Verify(x => x.AddAsync(It.IsAny<{Entity}>(), default), Times.Once);
+        _unitOfWorkMock.Verify(x => x.SaveChangesAsync(default), Times.Once);
+    }
+
+    [Fact]
+    public async Task Handle_ShouldThrowBusinessException_WhenDuplicateExists()
+    {
+        // Arrange
+        var command = _fixture.Create<Create{Entity}Command>();
+        _repositoryMock.Setup(x => x.ExistsAsync(It.IsAny<Expression<Func<{Entity}, bool>>>(), default))
+            .ReturnsAsync(true);
+
+        // Act & Assert
+        await Assert.ThrowsAsync<BusinessException>(
+            () => _handler.Handle(command, CancellationToken.None));
+    }
+}
+```
+
+### Test Template - Validator
+```csharp
+public class Create{Entity}CommandValidatorTests
+{
+    private readonly Create{Entity}CommandValidator _validator;
+
+    public Create{Entity}CommandValidatorTests()
+    {
+        _validator = new Create{Entity}CommandValidator();
+    }
+
+    [Fact]
+    public void Validate_ShouldPass_WhenAllFieldsValid()
+    {
+        // Arrange
+        var command = new Create{Entity}Command(
+            "ValidFirstName",
+            "ValidLastName",
+            "valid@email.com",
+            "5551234567");
+
+        // Act
+        var result = _validator.Validate(command);
+
+        // Assert
+        result.IsValid.Should().BeTrue();
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData(null)]
+    [InlineData("   ")]
+    public void Validate_ShouldFail_WhenFirstNameEmpty(string firstName)
+    {
+        // Arrange
+        var command = new Create{Entity}Command(firstName, "Last", "email@test.com", null);
+
+        // Act
+        var result = _validator.Validate(command);
+
+        // Assert
+        result.IsValid.Should().BeFalse();
+        result.Errors.Should().Contain(e => e.PropertyName == "FirstName");
+    }
+
+    [Fact]
+    public void Validate_ShouldFail_WhenEmailInvalidFormat()
+    {
+        // Arrange
+        var command = new Create{Entity}Command("First", "Last", "invalid-email", null);
+
+        // Act
+        var result = _validator.Validate(command);
+
+        // Assert
+        result.IsValid.Should().BeFalse();
+        result.Errors.Should().Contain(e => e.PropertyName == "Email");
+    }
+}
+```
+
+### Coverage Requirements
+| Component | Minimum Coverage |
+|-----------|-----------------|
+| CommandHandlers | 90% |
+| QueryHandlers | 90% |
+| Validators | 100% |
+| Controllers | 80% |
+| Repositories | 80% |
+| Services | 85% |
+| **Overall** | **80%** |
+
+### Test Libraries
+```xml
+<PackageReference Include="xunit" />
+<PackageReference Include="xunit.runner.visualstudio" />
+<PackageReference Include="Moq" />
+<PackageReference Include="AutoFixture" />
+<PackageReference Include="AutoFixture.Xunit2" />
+<PackageReference Include="AutoFixture.AutoMoq" />
+<PackageReference Include="FluentAssertions" />
+<PackageReference Include="Bogus" />
+<PackageReference Include="Microsoft.NET.Test.Sdk" />
+<PackageReference Include="coverlet.collector" />
+```
+
+### Test Naming Convention
+```
+{MethodName}_Should{ExpectedBehavior}_When{Condition}
+```
+Examples:
+- `Handle_ShouldReturnSuccess_WhenValidRequest`
+- `Validate_ShouldFail_WhenEmailEmpty`
+- `GetById_ShouldReturn404_WhenCustomerNotFound`
+
+### Running Tests with Coverage
+```bash
+# Run tests with coverage
+dotnet test --collect:"XPlat Code Coverage"
+
+# Generate HTML report
+reportgenerator -reports:coverage.cobertura.xml -targetdir:coveragereport
+```
+
+## 📋 Configuration Rules
+
+### appsettings Structure
+```
+appsettings.json           - Base configuration
+appsettings.Development.json - Dev overrides
+appsettings.Production.json  - Prod overrides
+```
+
+### Environment-Specific Settings
+- Connection strings via environment variables in production
+- Sensitive data never in source control
+- Use User Secrets for local development
+
+## 🔄 Change Checklist
+
+When making changes:
+1. [ ] Follow layer separation rules
+2. [ ] Update documentation in `docs/` folder
+3. [ ] **AUTO-GENERATE unit tests** (min %80 coverage)
+4. [ ] Check Oracle compatibility
+5. [ ] Verify logging configuration
+6. [ ] Run linter checks
+7. [ ] Update DDL scripts if schema changed
+8. [ ] Run all tests and verify coverage
+
+### API Method Ekleme Checklist
+Yeni bir API metodu eklendiğinde:
+1. [ ] Controller action oluştur
+2. [ ] Command/Query oluştur
+3. [ ] Handler oluştur
+4. [ ] Validator oluştur
+5. [ ] **Unit Tests OTOMATIK OLUŞTUR:**
+   - [ ] HandlerTests (success, failure, validation scenarios)
+   - [ ] ValidatorTests (all field validations)
+   - [ ] ControllerTests (all HTTP status codes)
+6. [ ] Integration tests ekle
+7. [ ] Swagger dokümantasyonu güncelle
+8. [ ] docs/ klasörünü güncelle

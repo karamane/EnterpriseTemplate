@@ -33,7 +33,7 @@ public record ServerUpdateCustomerRequest(
 /// Server API'den dönen müşteri yanıtı
 /// </summary>
 public record ServerCustomerResponse(
-    Guid Id,
+    long Id,
     string FirstName,
     string LastName,
     string Email,
@@ -46,7 +46,7 @@ public record ServerCustomerResponse(
 /// Server API'den dönen müşteri oluşturma yanıtı
 /// </summary>
 public record ServerCreateCustomerResponse(
-    Guid Id,
+    long Id,
     string FirstName,
     string LastName,
     string Email,

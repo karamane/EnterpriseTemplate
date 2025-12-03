@@ -7,13 +7,13 @@ namespace Enterprise.Business.Features.Customers.Queries.GetCustomerById;
 /// Müşteri sorgulama
 /// CQRS pattern - Query örneği
 /// </summary>
-public record GetCustomerByIdQuery(Guid Id) : IRequest<Result<CustomerDto>>;
+public record GetCustomerByIdQuery(long Id) : IRequest<Result<CustomerDto>>;
 
 /// <summary>
 /// Customer DTO
 /// </summary>
 public record CustomerDto(
-    Guid Id,
+    long Id,
     string FirstName,
     string LastName,
     string Email,

@@ -17,7 +17,7 @@ public record CreateCustomerCommand(
 /// Müşteri oluşturma yanıtı
 /// </summary>
 public record CreateCustomerResponse(
-    Guid Id,
+    long Id,
     string FirstName,
     string LastName,
     string Email,

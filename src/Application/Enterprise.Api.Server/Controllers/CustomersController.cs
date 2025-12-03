@@ -24,10 +24,10 @@ public class CustomersController : BaseApiController
     /// </summary>
     /// <param name="id">Müşteri ID</param>
     /// <returns>Müşteri bilgisi</returns>
-    [HttpGet("{id:guid}")]
+    [HttpGet("{id:long}")]
     [ProducesResponseType(typeof(ApiResponse<CustomerApiResponse>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> GetById(Guid id)
+    public async Task<IActionResult> GetById(long id)
     {
         var result = await Mediator.Send(new GetCustomerByIdQuery(id));
 

@@ -15,21 +15,32 @@ public class ClientApiMappingProfile : Profile
         // Client Request -> Server Request mappings
         CreateMap<CreateCustomerClientRequest, ServerCreateCustomerRequest>();
 
-        // Server Response -> Client Response mappings
+        // Server Response -> Client Response mappings (ConstructUsing for records)
         CreateMap<ServerCustomerResponse, CustomerClientResponse>()
-            .ForMember(dest => dest.Id, opt => opt.MapFrom(src => src.Id.ToString()))
-            .ForMember(dest => dest.FullName, opt => opt.MapFrom(src => $"{src.FirstName} {src.LastName}"));
+            .ConstructUsing(src => new CustomerClientResponse(
+                src.Id.ToString(),
+                $"{src.FirstName} {src.LastName}",
+                src.Email,
+                src.PhoneNumber,
+                src.IsActive));
 
         CreateMap<ServerCreateCustomerResponse, CreateCustomerClientResponse>()
-            .ForMember(dest => dest.Id, opt => opt.MapFrom(src => src.Id.ToString()))
-            .ForMember(dest => dest.FullName, opt => opt.MapFrom(src => $"{src.FirstName} {src.LastName}"))
-            .ForMember(dest => dest.Message, opt => opt.MapFrom(src => "Müşteri başarıyla oluşturuldu"));
+            .ConstructUsing(src => new CreateCustomerClientResponse(
+                src.Id.ToString(),
+                $"{src.FirstName} {src.LastName}",
+                "Müşteri başarıyla oluşturuldu"));
 
         CreateMap<ServerCustomerResponse, CustomerDetailClientResponse>()
-            .ForMember(dest => dest.Id, opt => opt.MapFrom(src => src.Id.ToString()))
-            .ForMember(dest => dest.FullName, opt => opt.MapFrom(src => $"{src.FirstName} {src.LastName}"))
-            .ForMember(dest => dest.RegisteredAt, opt => opt.MapFrom(src => src.RegisteredAt.ToString("dd.MM.yyyy HH:mm")))
-            .ForMember(dest => dest.CreatedAt, opt => opt.MapFrom(src => src.CreatedAt.ToString("dd.MM.yyyy HH:mm")));
+            .ConstructUsing(src => new CustomerDetailClientResponse(
+                src.Id.ToString(),
+                src.FirstName,
+                src.LastName,
+                $"{src.FirstName} {src.LastName}",
+                src.Email,
+                src.PhoneNumber,
+                src.IsActive,
+                src.RegisteredAt.ToString("dd.MM.yyyy HH:mm"),
+                src.CreatedAt.ToString("dd.MM.yyyy HH:mm")));
 
         // List response mapping
         CreateMap<ServerPagedCustomerResponse, CustomerListClientResponse>()

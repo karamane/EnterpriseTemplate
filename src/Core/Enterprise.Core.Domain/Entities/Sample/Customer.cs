@@ -3,8 +3,9 @@ namespace Enterprise.Core.Domain.Entities.Sample;
 /// <summary>
 /// Örnek Customer entity
 /// Geliştiriciler için referans entity
+/// Oracle: NUMBER ID, SqlServer: GUID ID için SoftDeleteEntity&lt;long&gt; veya SoftDeleteEntity kullanın
 /// </summary>
-public class Customer : SoftDeleteEntity
+public class Customer : SoftDeleteEntity<long>
 {
     /// <summary>
     /// Müşteri adı
@@ -43,6 +44,7 @@ public class Customer : SoftDeleteEntity
 
     /// <summary>
     /// Yeni müşteri oluşturur
+    /// ID Oracle sequence tarafından atanır
     /// </summary>
     public static Customer Create(
         string firstName,
@@ -52,7 +54,7 @@ public class Customer : SoftDeleteEntity
     {
         var customer = new Customer
         {
-            Id = Guid.NewGuid(),
+            // ID Oracle sequence tarafından atanacak (Identity)
             FirstName = firstName,
             LastName = lastName,
             Email = email,
@@ -62,10 +64,15 @@ public class Customer : SoftDeleteEntity
             CreatedAt = DateTime.UtcNow
         };
 
-        // Domain event ekle
-        customer.AddDomainEvent(new CustomerCreatedEvent(customer.Id, customer.Email));
-
         return customer;
+    }
+
+    /// <summary>
+    /// Domain event eklemek için (ID atandıktan sonra çağrılmalı)
+    /// </summary>
+    public void RaiseCreatedEvent()
+    {
+        AddDomainEvent(new CustomerCreatedEvent(Id, Email));
     }
 
     /// <summary>
@@ -120,7 +127,7 @@ public class Customer : SoftDeleteEntity
 /// <summary>
 /// Müşteri oluşturuldu event'i
 /// </summary>
-public record CustomerCreatedEvent(Guid CustomerId, string Email) : IDomainEvent
+public record CustomerCreatedEvent(long CustomerId, string Email) : IDomainEvent
 {
     public DateTime OccurredOn { get; } = DateTime.UtcNow;
 }
@@ -128,7 +135,7 @@ public record CustomerCreatedEvent(Guid CustomerId, string Email) : IDomainEvent
 /// <summary>
 /// Müşteri email değişti event'i
 /// </summary>
-public record CustomerEmailChangedEvent(Guid CustomerId, string OldEmail, string NewEmail) : IDomainEvent
+public record CustomerEmailChangedEvent(long CustomerId, string OldEmail, string NewEmail) : IDomainEvent
 {
     public DateTime OccurredOn { get; } = DateTime.UtcNow;
 }

@@ -20,6 +20,7 @@
     <PackageReference Include="Serilog.Enrichers.Process" />
     <PackageReference Include="Serilog.Expressions" />
     <PackageReference Include="Microsoft.Data.SqlClient" />
+    <PackageReference Include="Oracle.ManagedDataAccess.Core" />
     <PackageReference Include="Dapper" />
     <PackageReference Include="Microsoft.IO.RecyclableMemoryStream" />
   </ItemGroup>

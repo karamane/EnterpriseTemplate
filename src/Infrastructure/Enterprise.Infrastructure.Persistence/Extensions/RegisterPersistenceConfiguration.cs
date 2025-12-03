@@ -8,6 +8,8 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Oracle.EntityFrameworkCore;
+using Oracle.EntityFrameworkCore.Infrastructure;
 
 namespace Enterprise.Infrastructure.Persistence.Extensions;
 
@@ -127,41 +129,29 @@ public static class RegisterPersistenceConfiguration
 
     /// <summary>
     /// Oracle yapılandırması
-    /// Oracle.EntityFrameworkCore paketi gerekli
+    /// Oracle.EntityFrameworkCore paketi ile tam entegrasyon
     /// </summary>
     private static void ConfigureOracle(DbContextOptionsBuilder options, DatabaseOptions dbOptions)
     {
-        var oracleExtensionsType = Type.GetType(
-            "Oracle.EntityFrameworkCore.OracleDbContextOptionsExtensions, Oracle.EntityFrameworkCore");
-
-        if (oracleExtensionsType == null)
+        options.UseOracle(dbOptions.ConnectionString, oracleOptions =>
         {
-            throw new InvalidOperationException(
-                "Oracle provider is configured but Oracle.EntityFrameworkCore package is not installed. " +
-                "Please install: dotnet add package Oracle.EntityFrameworkCore");
-        }
+            // Command timeout
+            oracleOptions.CommandTimeout(dbOptions.CommandTimeout);
 
-        var useOracleMethod = oracleExtensionsType.GetMethod(
-            "UseOracle",
-            new[] { typeof(DbContextOptionsBuilder), typeof(string), typeof(Action<object>) });
+            // Oracle 19c ve üstü için SQL uyumluluğu
+            oracleOptions.UseOracleSQLCompatibility(OracleSQLCompatibility.DatabaseVersion19);
 
-        if (useOracleMethod == null)
-        {
-            useOracleMethod = oracleExtensionsType.GetMethod(
-                "UseOracle",
-                new[] { typeof(DbContextOptionsBuilder), typeof(string) });
-
-            useOracleMethod?.Invoke(null, new object[] { options, dbOptions.ConnectionString });
-        }
-        else
-        {
-            useOracleMethod.Invoke(null, new object?[]
+            // Retry stratejisi
+            if (dbOptions.MaxRetryCount > 0)
             {
-                options,
-                dbOptions.ConnectionString,
-                null
-            });
-        }
+                oracleOptions.ExecutionStrategy(dependencies =>
+                    new OracleRetryingExecutionStrategy(
+                        dependencies,
+                        maxRetryCount: dbOptions.MaxRetryCount,
+                        maxRetryDelay: TimeSpan.FromSeconds(dbOptions.MaxRetryDelay),
+                        errorNumbersToAdd: null));
+            }
+        });
     }
 
     /// <summary>

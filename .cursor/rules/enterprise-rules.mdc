@@ -2,34 +2,142 @@
 
 ## 🏗️ Architecture Rules
 
-### Layer Separation
-- **Client API (DMZ)**: Presentation layer for external consumers (mobile, web clients)
-  - ❌ NO direct database access
-  - ❌ NO EF Core DbContext usage
-  - ✅ Only communicates with Server API via HTTP
-  - ✅ Logs only to FILE (not database)
-  - ✅ Stateless design
+### Katman Mimarisi (Layer Architecture)
 
-- **Server API (Internal)**: Business logic and data access
-  - ✅ Can access database via repositories
-  - ✅ Logs to FILE and DATABASE
-  - ✅ Contains business rules and validations
+```
+┌───────────────────────────────────────────────────────────────────────────┐
+│                              DMZ KATMANI                                   │
+│                         (External - Internet)                              │
+├───────────────────────────────┬───────────────────────────────────────────┤
+│     REST Client API           │         WCF Client API                    │
+│     (HTTP/JSON)               │         (SOAP/XML)                        │
+│     Port: 5002                │         Port: 5003                        │
+│     Mobile/Web clients        │         Legacy .NET Framework clients     │
+│                               │                                           │
+│     ❌ Database erişimi YOK   │         ❌ Database erişimi YOK           │
+│     ❌ Proxy erişimi YOK      │         ❌ Proxy erişimi YOK              │
+│     ✅ SADECE Server API      │         ✅ SADECE Server API              │
+└───────────────┬───────────────┴─────────────────────┬─────────────────────┘
+                │                                     │
+                │     İKİSİ DE AYNI İŞİ YAPAR        │
+                │     BİRBİRLERİNİN ALTERNATİFİ      │
+                │                                     │
+                └──────────────────┬──────────────────┘
+                                   ↓
+┌───────────────────────────────────────────────────────────────────────────┐
+│                           SERVER API                                       │
+│                        (Internal Network)                                  │
+│                          Port: 5101                                        │
+├───────────────────────────────────────────────────────────────────────────┤
+│                          Business Layer                                    │
+├───────────────────────────────┬───────────────────────────────────────────┤
+│     Database / Repository     │         Proxy Services                    │
+│     (EF Core, Dapper)         │         (External API calls)              │
+│     Oracle, SQL Server        │         3rd party integrations            │
+└───────────────────────────────┴───────────────────────────────────────────┘
+```
+
+### DMZ Kuralları (KRİTİK!)
+
+**Client API'ler (REST ve WCF) DMZ'de çalışır ve şu kurallara MUTLAKA uymalı:**
+
+| Kural | Açıklama |
+|-------|----------|
+| ❌ Database | Direkt veritabanı erişimi YASAK |
+| ❌ Proxy | Direkt proxy servis erişimi YASAK |
+| ❌ Business | Business layer referansı YASAK |
+| ❌ Domain | Domain entity referansı YASAK |
+| ✅ Server API | SADECE Server API tüketilir |
+| ✅ File Log | Loglar sadece dosyaya yazılır |
 
 ### Project References
+
 ```
-Enterprise.Api.Client (DMZ)
-├── Enterprise.Core.Shared (only)
+Enterprise.Api.Client (DMZ - REST)
+├── Enterprise.Core.Shared
 ├── Enterprise.Infrastructure.Logging (file logging only)
 └── Enterprise.Infrastructure.CrossCutting
-    ❌ NO reference to Enterprise.Infrastructure.Persistence
-    ❌ NO reference to Enterprise.Core.Domain
-    ❌ NO reference to Enterprise.Business
+    ❌ NO Enterprise.Infrastructure.Persistence
+    ❌ NO Enterprise.Core.Domain  
+    ❌ NO Enterprise.Business
+    ❌ NO Enterprise.Proxy.Core
+
+Enterprise.Api.Client.Wcf (DMZ - SOAP)
+├── Enterprise.Core.Shared
+├── Enterprise.Infrastructure.Logging (file logging only)
+├── Enterprise.Infrastructure.CrossCutting
+└── CoreWCF.Http, CoreWCF.Primitives
+    ❌ NO Enterprise.Infrastructure.Persistence
+    ❌ NO Enterprise.Core.Domain
+    ❌ NO Enterprise.Business
+    ❌ NO Enterprise.Proxy.Core
 
 Enterprise.Api.Server (Internal)
 ├── Enterprise.Business
 ├── Enterprise.Infrastructure.Persistence
 ├── Enterprise.Infrastructure.Logging
+├── Enterprise.Proxy.Core (external service calls)
 └── All other internal projects
+```
+
+### REST Client API vs WCF Client API
+
+**⚠️ İKİSİ DE AYNI METOTLARI SUNAR - BİRBİRLERİNİN ALTERNATİFİ!**
+
+| İşlem | REST Client API | WCF Client API |
+|-------|-----------------|----------------|
+| Müşteri Getir | `GET /api/customers/{id}` | `GetCustomerAsync(id)` via SOAP |
+| Müşteri Listele | `GET /api/customers` | `GetAllCustomersAsync()` via SOAP |
+| Müşteri Oluştur | `POST /api/customers` | `CreateCustomerAsync(req)` via SOAP |
+| Müşteri Güncelle | `PUT /api/customers/{id}` | `UpdateCustomerAsync(req)` via SOAP |
+| Müşteri Sil | `DELETE /api/customers/{id}` | `DeleteCustomerAsync(id)` via SOAP |
+| Giriş Yap | `POST /api/auth/login` | `LoginAsync(req)` via SOAP |
+| Token Yenile | `POST /api/auth/refresh` | `RefreshTokenAsync(req)` via SOAP |
+
+### WCF Client API - SOAP Endpoints
+
+| SOAP Endpoint | Açıklama | WSDL |
+|---------------|----------|------|
+| `/AuthService.svc` | Kimlik doğrulama | `/AuthService.svc?wsdl` |
+| `/CustomerService.svc` | Müşteri işlemleri | `/CustomerService.svc?wsdl` |
+
+### Client API Özellikleri
+
+| Özellik | REST Client API | WCF Client API |
+|---------|----------------|----------------|
+| Protocol | HTTP/JSON | SOAP/XML |
+| Authentication | Bearer Token | Basic Auth → Bearer veya Bearer |
+| Token Storage | Client-side | Client-side |
+| Server API Tüketimi | ✅ HttpClient | ✅ HttpClient |
+| Correlation ID | ✅ HTTP Header | ✅ HTTP Header |
+| Rate Limiting | ✅ | ✅ |
+| Health Checks | `/health` | `/health` |
+| Metadata | Swagger/OpenAPI | WSDL |
+
+### Authentication Flow
+
+**REST Client API:**
+```
+REST Client → POST /api/auth/login (username, password)
+                      ↓
+              REST Client API → Server API /auth/login
+                      ↓
+              Bearer Token döner
+                      ↓
+              Sonraki isteklerde: Authorization: Bearer {token}
+```
+
+**WCF Client API (Basic Auth → Bearer dönüşümü):**
+```
+SOAP Client → Basic Auth Header: base64(username:password)
+                      ↓
+              WCF Client API (BasicAuthMiddleware)
+                      ↓
+              Server API /auth/login
+                      ↓
+              Bearer Token alınır, request'e eklenir
+                      ↓
+              Server API'ye Bearer ile istek
 ```
 
 ## 📝 Logging Rules
@@ -127,6 +235,40 @@ Feature/
 │   └── UpdateCustomer/
 └── Queries/
     └── GetCustomerById/
+```
+
+### DTO Organization
+- **Her DTO kendi dosyasında olmalı** (Single Responsibility Principle)
+- Dosya adı DTO adıyla aynı olmalı: `CustomerDto.cs`, `CreateCustomerRequest.cs`
+- ❌ Birden fazla DTO'yu aynı dosyada tanımlama
+- ❌ `DTOs.cs` veya `Models.cs` gibi toplu dosyalar oluşturma
+- ✅ Her record/class kendi dosyasında
+
+**Örnek Yapı:**
+```
+DTOs/
+├── CustomerDto.cs
+├── CreateCustomerRequest.cs
+├── CreateCustomerResponse.cs
+├── UpdateCustomerRequest.cs
+└── CustomerListResponse.cs
+```
+
+**Yanlış:**
+```csharp
+// ❌ CustomerDtos.cs - Birden fazla DTO tek dosyada
+public record CustomerDto(...);
+public record CreateCustomerRequest(...);
+public record CustomerListResponse(...);
+```
+
+**Doğru:**
+```csharp
+// ✅ CustomerDto.cs
+public record CustomerDto(long Id, string FirstName, ...);
+
+// ✅ CreateCustomerRequest.cs  
+public record CreateCustomerRequest(string FirstName, ...);
 ```
 
 ### Naming Conventions

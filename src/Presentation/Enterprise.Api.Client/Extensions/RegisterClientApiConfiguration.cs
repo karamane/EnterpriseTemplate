@@ -53,6 +53,9 @@ public static class RegisterClientApiConfiguration
         this IServiceCollection services,
         IConfiguration configuration)
     {
+        // HttpContextAccessor (Authorization header propagation için)
+        services.AddHttpContextAccessor();
+
         // Infrastructure katmanları (sadece gerekli olanlar)
         services.RegisterLogging(configuration);
         services.RegisterCrossCutting(configuration);

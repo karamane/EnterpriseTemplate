@@ -1,28 +1,32 @@
 using System.Net.Http.Json;
 using System.Text.Json;
 using Enterprise.Core.Application.Interfaces.Logging;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 
 namespace Enterprise.Api.Client.Services;
 
 /// <summary>
 /// Server API HTTP client implementasyonu
-/// Correlation ID propagation dahil
+/// Correlation ID ve Authorization header propagation dahil
 /// </summary>
 public class ServerApiClient : IServerApiClient
 {
     private readonly HttpClient _httpClient;
     private readonly ICorrelationContext _correlationContext;
+    private readonly IHttpContextAccessor _httpContextAccessor;
     private readonly ILogger<ServerApiClient> _logger;
     private readonly JsonSerializerOptions _jsonOptions;
 
     public ServerApiClient(
         HttpClient httpClient,
         ICorrelationContext correlationContext,
+        IHttpContextAccessor httpContextAccessor,
         ILogger<ServerApiClient> logger)
     {
         _httpClient = httpClient;
         _correlationContext = correlationContext;
+        _httpContextAccessor = httpContextAccessor;
         _logger = logger;
         _jsonOptions = new JsonSerializerOptions
         {
@@ -103,6 +107,14 @@ public class ServerApiClient : IServerApiClient
         {
             _httpClient.DefaultRequestHeaders.Remove("X-Correlation-ID");
             _httpClient.DefaultRequestHeaders.Add("X-Correlation-ID", _correlationContext.CorrelationId);
+        }
+
+        // Authorization header propagation (Bearer token)
+        var authHeader = _httpContextAccessor.HttpContext?.Request.Headers.Authorization.ToString();
+        if (!string.IsNullOrEmpty(authHeader))
+        {
+            _httpClient.DefaultRequestHeaders.Remove("Authorization");
+            _httpClient.DefaultRequestHeaders.TryAddWithoutValidation("Authorization", authHeader);
         }
     }
 }

@@ -1,10 +1,8 @@
 namespace Enterprise.Api.Client.DTOs;
 
-/// <summary>
-/// Server API ile iletişim için kullanılan contract DTO'ları
-/// Client API tamamen izole - Server API referansı yok
-/// Bu DTO'lar Server API'nin beklediği/döndürdüğü format ile uyumlu olmalı
-/// </summary>
+// Server API ile iletişim için kullanılan contract DTO'ları
+// Client API tamamen izole - Server API referansı yok
+// Bu DTO'lar Server API'nin beklediği/döndürdüğü format ile uyumlu olmalı
 
 #region Request Contracts (Client -> Server)
 
@@ -63,6 +61,18 @@ public record ServerPagedCustomerResponse(
     int TotalPages);
 
 /// <summary>
+/// Server API'den dönen müşteri güncelleme yanıtı
+/// </summary>
+public record ServerUpdateCustomerResponse(
+    long Id,
+    string FirstName,
+    string LastName,
+    string Email,
+    string? PhoneNumber,
+    bool IsActive,
+    DateTime UpdatedAt);
+
+/// <summary>
 /// Server API generic response wrapper
 /// </summary>
 public record ServerApiResponse<T>(
@@ -73,6 +83,56 @@ public record ServerApiResponse<T>(
     List<string>? Errors,
     string? CorrelationId,
     DateTime Timestamp);
+
+#endregion
+
+#region Order Contracts
+
+/// <summary>
+/// Server API'ye gönderilecek sipariş oluşturma isteği
+/// </summary>
+public record ServerCreateOrderRequest(
+    int CustomerId,
+    List<ServerOrderItemRequest> Items,
+    string? Notes);
+
+/// <summary>
+/// Server API'ye gönderilecek sipariş item'ı
+/// </summary>
+public record ServerOrderItemRequest(
+    int ProductId,
+    string ProductName,
+    int Quantity,
+    decimal UnitPrice);
+
+/// <summary>
+/// Server API'den dönen sipariş yanıtı
+/// </summary>
+public record ServerOrderResponse(
+    long Id,
+    long CustomerId,
+    string? CustomerName,
+    decimal TotalAmount,
+    string Status,
+    DateTime OrderDate,
+    List<ServerOrderItemResponse>? Items);
+
+/// <summary>
+/// Server API'den dönen sipariş item yanıtı
+/// </summary>
+public record ServerOrderItemResponse(
+    long ProductId,
+    string ProductName,
+    int Quantity,
+    decimal UnitPrice,
+    decimal TotalPrice);
+
+/// <summary>
+/// Server API'den dönen sipariş listesi
+/// </summary>
+public record ServerOrderListResponse(
+    List<ServerOrderResponse> Items,
+    int TotalCount);
 
 #endregion
 

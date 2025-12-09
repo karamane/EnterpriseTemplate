@@ -32,6 +32,22 @@ builder.Services.AddSwaggerGen(options =>
         Version = "v1",
         Description = "Secure Zone - Internal API"
     });
+
+    // JWT Bearer Authentication for Swagger
+    options.AddSecurityDefinition("Bearer", new Microsoft.OpenApi.Models.OpenApiSecurityScheme
+    {
+        Name = "Authorization",
+        Type = Microsoft.OpenApi.Models.SecuritySchemeType.Http,
+        Scheme = "Bearer",
+        BearerFormat = "JWT",
+        In = Microsoft.OpenApi.Models.ParameterLocation.Header,
+        Description = "JWT Authorization header using the Bearer scheme.\n\n" +
+                      "Enter your token in the text input below.\n\n" +
+                      "Example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+    });
+
+    // [AllowAnonymous] olan endpoint'ler için kilit gösterme
+    options.OperationFilter<Enterprise.Core.Shared.Extensions.AuthorizeCheckOperationFilter>();
 });
 
 // CORS

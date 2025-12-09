@@ -1,4 +1,5 @@
 using Enterprise.Core.Application.Interfaces.Logging;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Enterprise.Api.Client.Wcf.Controllers;
@@ -9,6 +10,7 @@ namespace Enterprise.Api.Client.Wcf.Controllers;
 [ApiController]
 [Route("api/wcf/[controller]")]
 [Produces("application/json")]
+[Authorize] // Tüm endpoint'ler için authentication gerekli
 public abstract class BaseWcfApiController : ControllerBase
 {
     protected readonly ICorrelationContext CorrelationContext;
@@ -57,6 +59,20 @@ public abstract class BaseWcfApiController : ControllerBase
             Message = message ?? "Kayıt silindi",
             CorrelationId = CorrelationContext.CorrelationId
         });
+    }
+
+    /// <summary>
+    /// Hata yanıtı döner
+    /// </summary>
+    protected WcfApiResponse<T> Error<T>(string message, string? errorCode = null)
+    {
+        return new WcfApiResponse<T>
+        {
+            Success = false,
+            Message = message,
+            ErrorCode = errorCode ?? "ERROR",
+            CorrelationId = CorrelationContext.CorrelationId
+        };
     }
 }
 

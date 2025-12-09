@@ -33,6 +33,20 @@ builder.Services.AddSwaggerGen(options =>
         Version = "v1",
         Description = "DMZ - Public API for Mobile Applications"
     });
+
+    // JWT Bearer Authentication for Swagger
+    options.AddSecurityDefinition("Bearer", new Microsoft.OpenApi.Models.OpenApiSecurityScheme
+    {
+        Name = "Authorization",
+        Type = Microsoft.OpenApi.Models.SecuritySchemeType.Http,
+        Scheme = "Bearer",
+        BearerFormat = "JWT",
+        In = Microsoft.OpenApi.Models.ParameterLocation.Header,
+        Description = "JWT token giriniz. Örnek: eyJhbGciOiJIUzI1NiIs..."
+    });
+
+    // [AllowAnonymous] olan endpoint'ler için kilit gösterme
+    options.OperationFilter<Enterprise.Core.Shared.Extensions.AuthorizeCheckOperationFilter>();
 });
 
 // Health Checks
@@ -66,6 +80,10 @@ if (app.Environment.IsDevelopment())
 
 // HTTPS
 app.UseHttpsRedirection();
+
+// Authentication & Authorization
+app.UseAuthentication();
+app.UseAuthorization();
 
 // Controllers
 app.MapControllers();

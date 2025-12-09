@@ -9,7 +9,7 @@ namespace Enterprise.Business.Mapping;
 
 /// <summary>
 /// Business katmanı AutoMapper profili
-/// Application DTO <-> Business DTO <-> Domain Entity mapping
+/// Application DTO - Business DTO - Domain Entity mapping
 /// </summary>
 public class BusinessMappingProfile : Profile
 {

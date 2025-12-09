@@ -10,16 +10,20 @@
     <PackageReference Include="AutoMapper" />
     <PackageReference Include="FluentValidation.AspNetCore" />
     <PackageReference Include="Swashbuckle.AspNetCore" />
-    <PackageReference Include="System.ServiceModel.Duplex" />
-    <PackageReference Include="System.ServiceModel.Http" />
-    <PackageReference Include="System.ServiceModel.NetTcp" />
-    <PackageReference Include="System.ServiceModel.Security" />
+    <!-- CoreWCF for hosting SOAP services -->
+    <PackageReference Include="CoreWCF.Primitives" />
+    <PackageReference Include="CoreWCF.Http" />
+    <!-- Polly for resilience -->
+    <PackageReference Include="Polly" />
+    <PackageReference Include="Polly.Extensions.Http" />
+    <PackageReference Include="Microsoft.Extensions.Http.Polly" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\..\Core\Enterprise.Core.Shared\Enterprise.Core.Shared.csproj" />
     <ProjectReference Include="..\..\Infrastructure\Enterprise.Infrastructure.Logging\Enterprise.Infrastructure.Logging.csproj" />
-    <ProjectReference Include="..\..\Proxy\Enterprise.Proxy.Core\Enterprise.Proxy.Core.csproj" />
+    <ProjectReference Include="..\..\Infrastructure\Enterprise.Infrastructure.CrossCutting\Enterprise.Infrastructure.CrossCutting.csproj" />
+    <!-- ❌ DMZ kuralı: Proxy erişimi yok! Sadece Server API tüketilir -->
   </ItemGroup>
 
 </Project>

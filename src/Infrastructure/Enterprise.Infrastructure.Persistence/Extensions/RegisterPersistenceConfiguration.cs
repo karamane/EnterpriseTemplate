@@ -109,6 +109,13 @@ public static class RegisterPersistenceConfiguration
         // EF Core repositories
         services.AddScoped(typeof(IRepository<>), typeof(EfCoreRepository<>));
         services.AddScoped(typeof(IRepository<,>), typeof(EfCoreRepository<,>));
+
+        // Auth repositories
+        services.AddScoped<IUserRepository, UserRepository>();
+        services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
+
+        // Domain-specific repositories
+        services.AddScoped<IOrderRepository, OrderRepository>();
     }
 
     /// <summary>

@@ -1,9 +1,11 @@
 using Enterprise.Core.Shared.Options;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.OpenApi.Models;
+using Swashbuckle.AspNetCore.SwaggerGen;
 
 namespace Enterprise.Core.Shared.Extensions;
 
@@ -63,20 +65,8 @@ public static class RegisterSwaggerConfiguration
                     Scheme = "Bearer"
                 });
 
-                c.AddSecurityRequirement(new OpenApiSecurityRequirement
-                {
-                    {
-                        new OpenApiSecurityScheme
-                        {
-                            Reference = new OpenApiReference
-                            {
-                                Type = ReferenceType.SecurityScheme,
-                                Id = "Bearer"
-                            }
-                        },
-                        Array.Empty<string>()
-                    }
-                });
+                // OperationFilter ile [AllowAnonymous] endpoint'leri hariç tutar
+                c.OperationFilter<AuthorizeCheckOperationFilter>();
             }
 
             // API Key Authentication
@@ -90,20 +80,7 @@ public static class RegisterSwaggerConfiguration
                     Type = SecuritySchemeType.ApiKey
                 });
 
-                c.AddSecurityRequirement(new OpenApiSecurityRequirement
-                {
-                    {
-                        new OpenApiSecurityScheme
-                        {
-                            Reference = new OpenApiReference
-                            {
-                                Type = ReferenceType.SecurityScheme,
-                                Id = "ApiKey"
-                            }
-                        },
-                        Array.Empty<string>()
-                    }
-                });
+                // Note: API Key için de OperationFilter kullanılabilir
             }
 
             // XML Comments
@@ -190,6 +167,77 @@ public static class RegisterSwaggerConfiguration
         }
 
         return app;
+    }
+}
+
+/// <summary>
+/// Swagger için [Authorize] ve [AllowAnonymous] attribute'larını kontrol eden filter
+/// [AllowAnonymous] olan endpoint'lerde kilit ikonu göstermez
+/// </summary>
+public class AuthorizeCheckOperationFilter : IOperationFilter
+{
+    public void Apply(OpenApiOperation operation, OperationFilterContext context)
+    {
+        // Controller ve action üzerindeki attribute'ları al
+        var hasAllowAnonymous = context.MethodInfo
+            .GetCustomAttributes(true)
+            .OfType<AllowAnonymousAttribute>()
+            .Any();
+
+        // Controller sınıfında da kontrol et
+        if (!hasAllowAnonymous && context.MethodInfo.DeclaringType != null)
+        {
+            hasAllowAnonymous = context.MethodInfo.DeclaringType
+                .GetCustomAttributes(true)
+                .OfType<AllowAnonymousAttribute>()
+                .Any();
+        }
+
+        // [AllowAnonymous] varsa security requirement ekleme
+        if (hasAllowAnonymous)
+        {
+            return;
+        }
+
+        // [Authorize] attribute'u var mı kontrol et
+        var hasAuthorize = context.MethodInfo
+            .GetCustomAttributes(true)
+            .OfType<AuthorizeAttribute>()
+            .Any();
+
+        // Controller sınıfında da kontrol et
+        if (!hasAuthorize && context.MethodInfo.DeclaringType != null)
+        {
+            hasAuthorize = context.MethodInfo.DeclaringType
+                .GetCustomAttributes(true)
+                .OfType<AuthorizeAttribute>()
+                .Any();
+        }
+
+        // [Authorize] varsa security requirement ekle
+        if (hasAuthorize)
+        {
+            operation.Responses.TryAdd("401", new OpenApiResponse { Description = "Unauthorized" });
+            operation.Responses.TryAdd("403", new OpenApiResponse { Description = "Forbidden" });
+
+            operation.Security = new List<OpenApiSecurityRequirement>
+            {
+                new OpenApiSecurityRequirement
+                {
+                    {
+                        new OpenApiSecurityScheme
+                        {
+                            Reference = new OpenApiReference
+                            {
+                                Type = ReferenceType.SecurityScheme,
+                                Id = "Bearer"
+                            }
+                        },
+                        Array.Empty<string>()
+                    }
+                }
+            };
+        }
     }
 }
 

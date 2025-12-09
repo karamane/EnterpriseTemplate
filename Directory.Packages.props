@@ -46,12 +46,17 @@
     <PackageVersion Include="Polly.Extensions.Http" Version="3.0.0" />
     <PackageVersion Include="Microsoft.Extensions.Http.Polly" Version="8.0.11" />
     
-    <!-- WCF -->
+    <!-- WCF Client (for consuming WCF services) -->
     <PackageVersion Include="System.ServiceModel.Primitives" Version="6.0.0" />
     <PackageVersion Include="System.ServiceModel.Http" Version="6.0.0" />
     <PackageVersion Include="System.ServiceModel.Duplex" Version="6.0.0" />
     <PackageVersion Include="System.ServiceModel.NetTcp" Version="6.0.0" />
     <PackageVersion Include="System.ServiceModel.Security" Version="6.0.0" />
+    
+    <!-- CoreWCF (for hosting WCF services) -->
+    <PackageVersion Include="CoreWCF.Primitives" Version="1.5.2" />
+    <PackageVersion Include="CoreWCF.Http" Version="1.5.2" />
+    <PackageVersion Include="CoreWCF.NetTcp" Version="1.5.2" />
     
     <!-- Validation -->
     <PackageVersion Include="FluentValidation" Version="11.10.0" />
@@ -71,6 +76,9 @@
     <PackageVersion Include="HtmlSanitizer" Version="8.1.870" />
     <PackageVersion Include="AspNetCoreRateLimit" Version="5.0.0" />
     <PackageVersion Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="8.0.11" />
+    <PackageVersion Include="System.IdentityModel.Tokens.Jwt" Version="8.0.2" />
+    <PackageVersion Include="Microsoft.IdentityModel.Tokens" Version="8.0.2" />
+    <PackageVersion Include="BCrypt.Net-Next" Version="4.0.3" />
     
     <!-- Mapping -->
     <PackageVersion Include="AutoMapper" Version="13.0.1" />

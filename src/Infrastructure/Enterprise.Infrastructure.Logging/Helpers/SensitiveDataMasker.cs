@@ -113,7 +113,7 @@ public partial class SensitiveDataMasker : ISensitiveDataMasker
         }
 
         // Kredi kartı ve email maskeleme
-        result = MaskTextValue(result);
+        result = MaskTextValue(result) ?? result;
 
         return result;
     }

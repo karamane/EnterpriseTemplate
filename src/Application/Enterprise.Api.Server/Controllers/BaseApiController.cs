@@ -1,6 +1,7 @@
 using Enterprise.Core.Application.Interfaces.Logging;
 using Enterprise.Core.Shared.Results;
 using MediatR;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Enterprise.Api.Server.Controllers;
@@ -11,6 +12,7 @@ namespace Enterprise.Api.Server.Controllers;
 [ApiController]
 [Route("api/v1/[controller]")]
 [Produces("application/json")]
+[Authorize] // Tüm endpoint'ler için authentication gerekli
 public abstract class BaseApiController : ControllerBase
 {
     private ISender? _mediator;
